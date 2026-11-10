@@ -1,0 +1,51 @@
+{% extends "portal_staff/base_staff.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h3 class="mb-4">Auditoría de Expediente - CUI: {{ inscripcion.estudiante.cui }}</h3>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Datos del Estudiante y Grado a Cursar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {{ form_estudiante|crispy }}
+                    </div>
+                    <hr>
+                    <div class="row">
+                        {{ form_inscripcion|crispy }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Datos del Responsable Familiar</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {{ form_responsable|crispy }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de Acción Final del Digitador -->
+            <div class="d-flex justify-content-between mb-5">
+                <button type="submit" name="accion" value="actualizar" class="btn btn-outline-primary btn-lg">
+                    Guardar Correcciones
+                </button>
+
+                <button type="submit" name="accion" value="oficializar" class="btn btn-success btn-lg" onclick="return confirm('¿Está seguro de Oficializar la Inscripción? Esto generará el contrato y restará un cupo del grado seleccionado.');">
+                    Oficializar Inscripción e Imprimir Contrato
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

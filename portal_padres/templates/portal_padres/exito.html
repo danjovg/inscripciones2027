@@ -1,0 +1,51 @@
+{% extends "portal_padres/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5 mb-5">
+    <div class="col-md-9 col-lg-7 text-center">
+        <div class="card shadow border-0 rounded-4">
+            <div class="card-body p-5">
+                
+                <!-- Icono de Éxito -->
+                <div class="mb-3">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 4.5rem;"></i>
+                </div>
+                
+                <h2 class="fw-bold text-success mb-2">¡Preinscripción Completada!</h2>
+                <p class="text-muted lead mb-4">Los datos del estudiante han sido registrados exitosamente en nuestro sistema.</p>
+                
+                <!-- Tarjeta del Ticket -->
+                <div class="card bg-light border-0 shadow-sm p-4 mb-4 rounded-3">
+                    <span class="text-uppercase small fw-semibold text-muted mb-1">Su Código (Ticket Temporal) es:</span>
+                    <h1 class="display-3 fw-bold text-primary tracking-wide mb-0 user-select-all">{{ ticket }}</h1>
+                </div>
+
+                <!-- Pasos a seguir -->
+                <div class="text-start bg-white border p-4 rounded-3 mb-4 shadow-sm">
+                    <h5 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-info-circle-fill text-primary me-2"></i>Siguientes pasos:
+                    </h5>
+                    <ol class="mb-0 ps-3 text-secondary">
+                        <li class="mb-2"><strong>Guarde este código:</strong> Anótelo, tómale una captura de pantalla o cópielo.</li>
+                        <li class="mb-2"><strong>Acuda al Colegio:</strong> Presente este código en las instalaciones del Colegio Evangélico Mixto "Amigos".</li>
+                        <li><strong>Firme su Contrato:</strong> El equipo de Digitadores imprimirá su contrato oficial para la firma final. <br>
+                            <span class="text-danger fw-medium">⚠️ El cupo no está garantizado hasta firmar el documento físico.</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Botonera Alineada y Profesional -->
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{% url 'ingreso_cui' %}" class="btn btn-primary btn-lg px-4 gap-3">
+                        <i class="bi bi-person-plus me-1"></i> Inscribir a otro Estudiante
+                    </a>
+                    <a href="{% url 'ingreso_cui' %}" class="btn btn-outline-secondary btn-lg px-4">
+                        <i class="bi bi-house-door me-1"></i> Volver al Inicio
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

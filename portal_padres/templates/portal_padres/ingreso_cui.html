@@ -1,0 +1,391 @@
+{% extends "portal_padres/base.html" %}
+
+{% block content %}
+
+<div class="container py-4 py-md-5">
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-9 col-lg-7 col-xl-6">
+
+            <div class="card border-0 shadow rounded-4">
+                <div class="card-body p-4 p-md-5">
+
+                    <!-- ENCABEZADO -->
+                    <div class="text-center mb-4">
+
+                        <div class="mb-3">
+                            <div class="d-inline-flex align-items-center justify-content-center
+                                        bg-primary bg-opacity-10 rounded-circle"
+                                 style="width: 72px; height: 72px;">
+
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                     width="38"
+                                     height="38"
+                                     fill="currentColor"
+                                     class="text-primary"
+                                     viewBox="0 0 16 16"
+                                     aria-hidden="true">
+
+                                    <path d="M8.211 2.047a.5.5 0 0 0-.422 0l-7.5 3.5a.5.5 0 0 0 0 .906L2 7.22v3.3c0 .398.198.77.53.992C3.35 12.06 5.28 13 8 13s4.65-.94 5.47-1.488a1.2 1.2 0 0 0 .53-.992v-3.3l1.711-.767a.5.5 0 0 0 0-.906zM8 3.05 14.31 6 8 8.95 1.69 6zM3 7.67l4.789 2.235a.5.5 0 0 0 .422 0L13 7.67v3.13c-.7.468-2.48 1.2-5 1.2s-4.3-.732-5-1.2z"/>
+
+                                    <path d="M5 13.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5"/>
+
+                                </svg>
+
+                            </div>
+                        </div>
+
+                        <h1 class="h3 fw-bold mb-2">
+                            Preinscripción Jornada Vespertina
+                            <span class="d-block mt-1">
+                                Ciclo Escolar 2027
+                            </span>
+                        </h1>
+
+                        <p class="text-secondary mb-0">
+                            Inicie la preinscripción de su hijo o hija
+                            de forma sencilla y segura.
+                        </p>
+
+                    </div>
+
+                    <hr class="mb-4">
+
+                    <!-- INSTRUCCIONES -->
+                    <div class="mb-4">
+
+                        <h2 class="h6 fw-bold mb-3">
+                            ¿Cómo iniciar la preinscripción?
+                        </h2>
+
+                        <!-- PASO 1 -->
+                        <div class="d-flex align-items-start gap-3 mb-3">
+
+                            <span class="badge rounded-circle bg-primary
+                                         d-inline-flex align-items-center justify-content-center
+                                         flex-shrink-0"
+                                  style="width: 32px; height: 32px; min-width: 32px;">
+                                1
+                            </span>
+
+                            <div class="flex-grow-1">
+
+                                <p class="fw-semibold mb-1">
+                                    Busque el CUI del estudiante
+                                </p>
+
+                                <p class="text-secondary small mb-0">
+                                    Es el número de identificación de
+                                    13 dígitos que aparece debajo de los
+                                    nombres y apellidos del alumno en su
+                                    certificado de nacimiento.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                        <!-- PASO 2 -->
+                        <div class="d-flex align-items-start gap-3 mb-3">
+
+                            <span class="badge rounded-circle bg-primary
+                                         d-inline-flex align-items-center justify-content-center
+                                         flex-shrink-0"
+                                  style="width: 32px; height: 32px; min-width: 32px;">
+                                2
+                            </span>
+
+                            <div class="flex-grow-1">
+
+                                <p class="fw-semibold mb-1">
+                                    Ingrese los 13 dígitos
+                                </p>
+
+                                <p class="text-secondary small mb-0">
+                                    Escriba el número del estudiante en
+                                    el espacio que aparece abajo, sin
+                                    espacios ni guiones.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                        <!-- PASO 3 -->
+                        <div class="d-flex align-items-start gap-3">
+
+                            <span class="badge rounded-circle bg-primary
+                                         d-inline-flex align-items-center justify-content-center
+                                         flex-shrink-0"
+                                  style="width: 32px; height: 32px; min-width: 32px;">
+                                3
+                            </span>
+
+                            <div class="flex-grow-1">
+
+                                <p class="fw-semibold mb-1">
+                                    Presione el botón para continuar
+                                </p>
+
+                                <p class="text-secondary small mb-0">
+                                    El sistema le permitirá continuar
+                                    con el proceso y llenar el resto
+                                    del formulario. Lea cada pregunta
+                                    detenidamente.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- AVISO SOBRE DOCUMENTOS -->
+                    <div class="alert alert-primary border-0 rounded-3 mb-4"
+                         role="note">
+
+                        <div class="d-flex align-items-start gap-2">
+
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                 width="22"
+                                 height="22"
+                                 fill="currentColor"
+                                 class="flex-shrink-0 mt-1"
+                                 viewBox="0 0 16 16"
+                                 aria-hidden="true">
+
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+
+                                <path d="m8.93 6.588-2.29.287-.082.381.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.546 0 .876-.252 1.17-.598l.088-.416c-.205.18-.503.243-.676.243-.243 0-.331-.17-.27-.465zM8 5.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>
+
+                            </svg>
+
+                            <div class="flex-grow-1">
+
+                                <h2 class="h6 fw-bold mb-1">
+                                    ¿Qué documentos y datos debe tener a mano?
+                                </h2>
+
+                                <p class="small mb-0">
+                                    Antes de comenzar, tenga a mano los
+                                    números de DPI de los encargados y
+                                    los datos de los contactos de emergencia.
+                                    Esto le ayudará a completar la
+                                    preinscripción y agilizar el proceso.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- FORMULARIO -->
+                    <form method="POST" id="formPreinscripcion">
+
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+
+                            <label for="cui" class="form-label fw-semibold">
+                                CUI del estudiante
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control form-control-lg text-center"
+                                id="cui"
+                                name="cui"
+                                placeholder="Ingrese los 13 dígitos"
+                                inputmode="numeric"
+                                pattern="[0-9]{13}"
+                                minlength="13"
+                                maxlength="13"
+                                autocomplete="off"
+                                aria-describedby="ayudaCui errorCui"
+                                required
+                            >
+
+                            <div id="ayudaCui"
+                                 class="form-text text-center mt-2">
+
+                                Escriba únicamente números,
+                                sin espacios ni guiones.
+
+                            </div>
+
+                            <div id="errorCui"
+                                 class="invalid-feedback text-center">
+
+                                El CUI debe contener exactamente 13 dígitos.
+                                Revise el número e inténtelo nuevamente.
+
+                            </div>
+
+                        </div>
+
+                        <!-- BOTÓN PRINCIPAL -->
+                        <button
+                            type="submit"
+                            class="btn btn-primary btn-lg w-100 py-3 fw-semibold">
+
+                            Continuar con la preinscripción
+
+                        </button>
+
+                        <p class="text-secondary text-center small mt-3 mb-0">
+                            Antes de continuar, verifique que el CUI
+                            corresponda al estudiante.
+                        </p>
+
+                    </form>
+
+                    <!-- SECCIÓN DE AYUDA Y CONTACTO -->
+                    <div class="bg-light border rounded-3 p-3 p-md-4 mt-4">
+
+                        <div class="d-flex align-items-start gap-3">
+
+                            <!-- ICONO DE TELÉFONO -->
+                            <div class="d-flex align-items-center justify-content-center
+                                        bg-primary bg-opacity-10 text-primary rounded-circle
+                                        flex-shrink-0"
+                                 style="width: 44px; height: 44px;">
+
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                     width="21"
+                                     height="21"
+                                     fill="currentColor"
+                                     viewBox="0 0 16 16"
+                                     aria-hidden="true">
+
+                                    <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.607 17.6 17.6 0 0 0 6.607 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L6.033 8.133a1.75 1.75 0 0 1-.459-1.657l.547-2.19a.68.68 0 0 0-.122-.58z"/>
+
+                                </svg>
+
+                            </div>
+
+                            <!-- INFORMACIÓN DE CONTACTO -->
+                            <div class="flex-grow-1">
+
+                                <h2 class="h6 fw-bold mb-2">
+                                    ¿Necesita ayuda?
+                                </h2>
+
+                                <p class="small text-secondary mb-2">
+                                    Si tiene dificultades con la
+                                    preinscripción, puede comunicarse
+                                    con el establecimiento educativo.
+                                </p>
+
+                                <p class="small fw-semibold mb-3">
+                                    <span class="d-block">
+                                        Días hábiles
+                                    </span>
+
+                                    <span class="text-secondary fw-normal">
+                                        De 13:00 a 17:00 horas
+                                    </span>
+                                </p>
+
+                                <a href="tel:79420116"
+                                   class="btn btn-outline-primary d-inline-flex
+                                          align-items-center justify-content-center gap-2
+                                          px-3 py-2 fw-semibold">
+
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         width="18"
+                                         height="18"
+                                         fill="currentColor"
+                                         viewBox="0 0 16 16"
+                                         aria-hidden="true">
+
+                                        <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.607 17.6 17.6 0 0 0 6.607 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L6.033 8.133a1.75 1.75 0 0 1-.459-1.657l.547-2.19a.68.68 0 0 0-.122-.58z"/>
+
+                                    </svg>
+
+                                    <span>7942-0116</span>
+
+                                </a>
+
+                                <p class="text-secondary mt-2 mb-0"
+                                   style="font-size: 0.78rem;">
+
+                                    Toque el número para llamar
+                                    desde su celular.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- AVISO INFORMATIVO -->
+                    <p class="text-secondary text-center mt-4 mb-0"
+                       style="font-size: 0.78rem;">
+
+                        El CUI se utiliza para identificar al estudiante
+                        y evitar duplicidades durante el proceso de
+                        preinscripción. Ingrese los datos con atención.
+
+                    </p>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- VALIDACIÓN VISUAL DEL CUI -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const formulario = document.getElementById("formPreinscripcion");
+    const campoCui = document.getElementById("cui");
+
+    if (!formulario || !campoCui) {
+        return;
+    }
+
+    // Permitir únicamente números y un máximo de 13 dígitos.
+    campoCui.addEventListener("input", function () {
+
+        this.value = this.value
+            .replace(/[^0-9]/g, "")
+            .slice(0, 13);
+
+        this.classList.remove("is-invalid");
+        this.classList.remove("is-valid");
+
+    });
+
+    // Validar el CUI antes de enviar el formulario.
+    formulario.addEventListener("submit", function (event) {
+
+        const cui = campoCui.value.trim();
+
+        if (!/^[0-9]{13}$/.test(cui)) {
+
+            event.preventDefault();
+
+            campoCui.classList.add("is-invalid");
+            campoCui.classList.remove("is-valid");
+
+            campoCui.focus();
+
+            return;
+
+        }
+
+        campoCui.classList.remove("is-invalid");
+        campoCui.classList.add("is-valid");
+
+    });
+
+});
+</script>
+
+{% endblock %}

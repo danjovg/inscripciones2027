@@ -1,0 +1,165 @@
+{% extends "portal_padres/base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="row justify-content-center mt-3 mb-5">
+    <div class="col-lg-10">
+        
+        <!-- Mensajes de Error/Éxito de Django -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card shadow border-0 rounded-3">
+            <div class="card-header bg-primary text-white p-4">
+                <h4 class="mb-1">Ficha de Preinscripción</h4>
+                <p class="mb-0 opacity-75">CUI del Estudiante: <strong>{{ cui }}</strong></p>
+            </div>
+            
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <!-- SECCIÓN 1: Datos Académicos y de Ingreso -->
+                    <div class="border p-4 rounded-3 mb-4 bg-light">
+                        <h5 class="text-primary border-bottom pb-2 mb-3">1. Datos Académicos (Ciclo Próximo)</h5>
+                        <div class="row">
+                            {{ form_inscripcion|crispy }}
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: Datos del Estudiante -->
+                    <div class="border p-4 rounded-3 mb-4">
+                        <h5 class="text-primary border-bottom pb-2 mb-3">2. Perfil del Estudiante</h5>
+                        <div class="row">
+                            {{ form_estudiante|crispy }}
+                        </div>
+                    </div>
+
+<!-- SECCIÓN 3: Responsables y Tutores -->
+                    <div class="border p-4 rounded-3 mb-4">
+                        <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4">
+                            <h5 class="text-primary mb-0">3. Grupo Familiar y Responsables</h5>
+                            <!-- Botón para mostrar/ocultar el formulario de agregar (Mantiene el id) -->
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#collapseNuevoResponsable" aria-expanded="false" aria-controls="collapseNuevoResponsable">
+                                <i class="bi bi-person-plus"></i> Añadir Encargado
+                            </button>
+                        </div>
+                        
+                        <!-- LISTA DE ENCARGADOS ACTUALES -->
+                        {% if otros_responsables %}
+                        <div class="mb-4">
+                            <p class="text-muted small mb-2">Seleccione quién será el <strong>Encargado Principal</strong> (Quien firmará el contrato de preinscripción):</p>
+                            <div class="list-group">
+                                {% for relacion in otros_responsables %}
+                                <label class="list-group-item d-flex gap-3 align-items-center {% if relacion.es_contacto_principal %}bg-light border-primary{% endif %}">
+                                    <input class="form-check-input flex-shrink-0" type="radio" name="responsable_principal" value="{{ relacion.responsable.dpi }}" {% if relacion.es_contacto_principal %}checked{% endif %}>
+                                    <span class="pt-1 form-checked-content">
+                                        <strong>{{ relacion.responsable.nombres|upper }} {{ relacion.responsable.apellidos|upper }}</strong> 
+                                        <span class="badge bg-secondary ms-2">{{ relacion.parentesco|upper }}</span>
+                                        <span class="d-block text-muted small">
+                                            <i class="bi bi-card-text"></i> DPI: {{ relacion.responsable.dpi }} | 
+                                            <i class="bi bi-telephone"></i> Tel: {{ relacion.responsable.celular|default:"No registrado" }}
+                                        </span>
+                                    </span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning mb-4">
+                            <i class="bi bi-exclamation-triangle"></i> No hay encargados registrados. Es obligatorio registrar al menos a uno para finalizar. Haga clic en "Añadir Encargado".
+                        </div>
+                        {% endif %}
+
+                        <!-- FORMULARIO OCULTO PARA AGREGAR NUEVO ENCARGADO -->
+                        <div class="collapse {% if not otros_responsables %}show{% endif %}" id="collapseNuevoResponsable">
+                            <div class="card card-body bg-light border-0 shadow-sm mt-2">
+                                <h6 class="text-secondary mb-3"><i class="bi bi-person-badge"></i> Registrar Nuevo Familiar/Tutor</h6>
+                                <p class="text-muted small mb-3">Ingrese el <strong>DPI primero</strong>. Si la persona ya existe en nuestro sistema, los datos se autocompletarán para que usted asigne únicamente el parentesco con este estudiante.</p>
+                                
+                                <div class="row">
+                                    <!-- Primero el DPI y Parentesco -->
+                                    <div class="col-md-6 mb-3">
+                                        {{ form_responsable.dpi|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        {{ form_responsable.parentesco_tipo|as_crispy_field }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        {{ form_responsable.tipo_documento|as_crispy_field }}
+                                    </div>
+
+                                    <hr class="text-muted my-3">
+
+                                    <!-- El resto de datos -->
+                                    <div class="col-md-6 mb-3">{{ form_responsable.nombres|as_crispy_field }}</div>
+                                    <div class="col-md-6 mb-3">{{ form_responsable.apellidos|as_crispy_field }}</div>
+                                    <div class="col-md-4 mb-3">{{ form_responsable.edad|as_crispy_field }}</div>
+                                    <div class="col-md-4 mb-3">{{ form_responsable.estado_civil|as_crispy_field }}</div>
+                                    <div class="col-md-4 mb-3">{{ form_responsable.nacionalidad|as_crispy_field }}</div>
+
+                                    
+                                    <div class="col-md-12 mb-3">{{ form_responsable.direccion|as_crispy_field }}</div>
+                                    <div class="col-md-4 mb-3">{{ form_responsable.profesion|as_crispy_field }}</div>
+                                    
+                                    <!-- Celular y Checkbox agrupados -->
+                                    <div class="col-md-4 mb-3">
+                                        {{ form_responsable.celular|as_crispy_field }}
+                                        <div class="mt-1 ms-1 text-muted small">
+                                            {{ form_responsable.tiene_whatsapp|as_crispy_field }}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Teléfono Fijo con bandera -->
+                                    <div class="col-md-4 mb-3">
+                                        {{ form_responsable.telefono_fijo|as_crispy_field }}
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">{{ form_responsable.correo_electronico|as_crispy_field }}</div>
+                                    <div class="col-md-6 mb-3">{{ form_responsable.religion|as_crispy_field }}</div>
+
+                                    <div class="col-md-6 mb-3">{{ form_responsable.iglesia|as_crispy_field }}</div>
+                                </div>
+                                <div class="text-end mt-3 border-top pt-3">
+                                    <button type="button" class="btn btn-outline-secondary me-2" data-bs-toggle="collapse" data-bs-target="#collapseNuevoResponsable">Cancelar/Ocultar</button>
+                                    <!-- Botón para guardar temporalmente al familiar antes de finalizar -->
+                                    <button type="submit" name="accion" value="guardar_familiar" class="btn btn-primary"><i class="bi bi-save"></i> Guardar Nuevo Familiar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTONERA DE ACCIÓN -->
+                    <div class="d-flex justify-content-between mt-5 pt-3 border-top">
+                        <!-- El atributo formnovalidate ignora reglas HTML5 obligatorias -->
+                        <button type="submit" name="accion" value="borrador" class="btn btn-outline-secondary btn-lg px-4" formnovalidate>
+                            <i class="bi bi-save"></i> Guardar Borrador y Salir
+                        </button>
+                        
+                        <button type="submit" name="accion" value="finalizar" class="btn btn-success btn-lg px-5">
+                            Completar Preinscripción <i class="bi bi-arrow-right-circle ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        window.DJANGO_CONFIG_GRADOS = {{ config_grados_json|safe }};
+    </script>
+    <script src="{% static 'portal_padres/js/autocompletado.js' %}"></script>
+    <script src="{% static 'portal_padres/js/condicionales.js' %}"></script>
+    <!-- Agregamos el script de las banderas -->
+    <script src="{% static 'portal_padres/js/telefono_banderas.js' %}"></script>
+{% endblock extra_js %}

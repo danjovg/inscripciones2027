@@ -1,0 +1,73 @@
+{% extends "portal_staff/base_staff.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Buscar Alumno</h5>
+                <form method="GET" class="d-flex mt-3">
+                    <input class="form-control me-2 form-control-lg" type="search" name="q" value="{{ query }}" placeholder="Ingrese CUI, Nombres o Apellidos..." required>
+                    <button class="btn btn-primary btn-lg" type="submit">Buscar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm bg-primary text-white h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title">¿Llegó sin datos?</h5>
+                <p class="card-text small">Generar un expediente en blanco</p>
+                <button type="button" class="btn btn-light w-100" data-bs-toggle="modal" data-bs-target="#modalTicket">
+                    Generar Ticket Temporal
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if query %}
+<h4 class="mb-3">Resultados de búsqueda:</h4>
+<div class="list-group">
+    {% for alumno in resultados %}
+        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-1">{{ alumno.nombres }} {{ alumno.apellidos }}</h5>
+                <small class="text-muted">CUI: {{ alumno.cui }}</small>
+            </div>
+            <span class="badge bg-success rounded-pill">Estado: Revisión</span>
+        </div>
+    {% empty %}
+        <div class="alert alert-warning">No se encontró ningún alumno con esos datos.</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Modal para Generar Ticket Rápido -->
+<div class="modal fade" id="modalTicket" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'generar_ticket_rapido' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Emisión de Ticket Temporal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">CUI del Estudiante</label>
+                        <input type="text" name="cui" class="form-control" required maxlength="13">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombres del Estudiante</label>
+                        <input type="text" name="nombres" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Generar Registro en Blanco</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

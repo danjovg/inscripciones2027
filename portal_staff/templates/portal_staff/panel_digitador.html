@@ -1,0 +1,53 @@
+{% extends "portal_staff/base_staff.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Panel de Digitadores</h2>
+    <span class="badge bg-primary fs-6">Fase: Auditoría y Contratos</span>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Expedientes Pendientes de Oficializar</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>CUI</th>
+                        <th>Estudiante</th>
+                        <th>Grado a Cursar</th>
+                        <th>Estado Actual</th>
+                        <th>Ticket</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscripcion in inscripciones %}
+                    <tr>
+                        <td>{{ inscripcion.estudiante.cui }}</td>
+                        <td>{{ inscripcion.estudiante.nombres }} {{ inscripcion.estudiante.apellidos }}</td>
+                        <td>{{ inscripcion.grado_a_cursar.grado }}</td>
+                        <td>
+                            {% if inscripcion.estado_solicitud == 'BORRADOR' %}
+                                <span class="badge bg-secondary">Borrador</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Ticket Generado</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="fw-bold text-primary">{{ inscripcion.ticket_generado|default:"N/A" }}</span></td>
+                        <td>
+                            <!-- Este botón llevará a la vista de edición total en el siguiente paso -->
+                            <a href="{% url 'portal_staff:editar_expediente' inscripcion.id %}" class="btn btn-sm btn-outline-primary">Auditar y Generar Contrato</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No hay preinscripciones pendientes en la bandeja.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

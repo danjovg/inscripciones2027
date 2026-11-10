@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscripciones 2027 | Colegio Amigos</title>
+
+    <!-- Favicon seccionado -->
+    <link rel="icon" type="image/png" href="{% static 'portal_padres/img/favicon.ico' %}">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- CSS propio del portal (crear archivo vacío en static_global/portal_padres/css/styles.css) -->
+    <link rel="stylesheet" href="{% static 'portal_padres/css/styles.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/css/intlTelInput.css">
+    
+    <style>
+        /* Ajuste para que la bandera conviva bien con Bootstrap */
+        .iti { width: 100%; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Modifica tu navbar para que quede así -->
+<nav class="navbar navbar-dark bg-primary mb-4 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'ingreso_cui' %}">
+            <img src="{% static 'portal_padres/img/logo_colegio.png' %}" alt="Logo" width="40" height="40" class="d-inline-block align-text-top me-2">
+            Colegio Amigos
+        </a>
+        <!-- Botón Volver al Buscador -->
+        <a href="{% url 'ingreso_cui' %}" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-search"></i> Buscar otro Estudiante
+        </a>
+    </div>
+</nav>
+
+    <div class="container">
+        {% block content %}
+        {% endblock content %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/js/intlTelInput.min.js"></script>
+</body>
+</html>
