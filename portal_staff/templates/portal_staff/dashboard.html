@@ -2,69 +2,106 @@
 
 {% block content %}
 <div class="row mb-4">
+    <!-- Panel Izquierdo: Buscador -->
     <div class="col-md-8">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm border-primary">
             <div class="card-body">
-                <h5 class="card-title">Buscar Alumno</h5>
+                <h4 class="card-title text-primary"><i class="bi bi-search me-2"></i>Buscar Alumno en Sistema</h4>
+                <p class="text-muted small">Ingrese el CUI o el nombre para verificar si el padre ya realizó la preinscripción en casa.</p>
                 <form method="GET" class="d-flex mt-3">
-                    <input class="form-control me-2 form-control-lg" type="search" name="q" value="{{ query }}" placeholder="Ingrese CUI, Nombres o Apellidos..." required>
-                    <button class="btn btn-primary btn-lg" type="submit">Buscar</button>
+                    <input class="form-control me-2 form-control-lg border-primary" type="search" name="q" value="{{ query }}" placeholder="Ingrese CUI de 13 dígitos, Nombres o Apellidos..." required autofocus>
+                    <button class="btn btn-primary btn-lg px-4" type="submit">Buscar</button>
+                    {% if query %}
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-lg ms-2">Limpiar</a>
+                    {% endif %}
                 </form>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm bg-primary text-white h-100">
-            <div class="card-body text-center">
-                <h5 class="card-title">¿Llegó sin datos?</h5>
-                <p class="card-text small">Generar un expediente en blanco</p>
-                <button type="button" class="btn btn-light w-100" data-bs-toggle="modal" data-bs-target="#modalTicket">
-                    Generar Ticket Temporal
+    
+    <!-- Panel Derecho: Generador Rápido -->
+    <div class="col-md-4 mt-3 mt-md-0">
+        <div class="card shadow-sm bg-success bg-gradient text-white h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <h5 class="card-title"><i class="bi bi-person-plus-fill fs-2 d-block mb-2"></i>¿Llegó sin datos?</h5>
+                <p class="card-text small mb-4">Emita un ticket temporal para que el padre pase directamente a sala de digitación.</p>
+                <button type="button" class="btn btn-light btn-lg w-100 fw-bold text-success" data-bs-toggle="modal" data-bs-target="#modalTicket">
+                    Generar Ticket Rápido
                 </button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Resultados de la Búsqueda -->
 {% if query %}
-<h4 class="mb-3">Resultados de búsqueda:</h4>
-<div class="list-group">
-    {% for alumno in resultados %}
-        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="mb-1">{{ alumno.nombres }} {{ alumno.apellidos }}</h5>
-                <small class="text-muted">CUI: {{ alumno.cui }}</small>
+    <h5 class="mb-3 text-secondary border-bottom pb-2">Resultados encontrados para: "{{ query }}"</h5>
+    <div class="list-group shadow-sm mb-5">
+        {% for alumno in resultados %}
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3">
+                <div>
+                    <h5 class="mb-1 text-dark fw-bold">{{ alumno.nombres }} {{ alumno.apellidos }}</h5>
+                    <small class="text-muted"><i class="bi bi-credit-card-2-front me-1"></i> CUI: {{ alumno.cui }}</small>
+                </div>
+                
+                <!-- Buscamos si tiene un ticket para mostrarlo (asumiendo que accedemos vía su relación inversa) -->
+                <div class="text-end">
+                    {% with inscripcion=alumno.inscripcion_set.first %}
+                        {% if inscripcion %}
+                            <span class="d-block mb-1">Ticket: <strong class="text-primary fs-5">{{ inscripcion.ticket_generado }}</strong></span>
+                            {% if 'borrador' in inscripcion.estado_solicitud|lower or 'preinscrito' in inscripcion.estado_solicitud|lower %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> {{ inscripcion.estado_solicitud|upper }}</span>
+                            {% else %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill"></i> INSCRITO OFICIAL</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">Estudiante en BD sin Inscripción Activa</span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
             </div>
-            <span class="badge bg-success rounded-pill">Estado: Revisión</span>
-        </div>
-    {% empty %}
-        <div class="alert alert-warning">No se encontró ningún alumno con esos datos.</div>
-    {% endfor %}
-</div>
+        {% empty %}
+            <div class="alert alert-warning d-flex align-items-center p-4">
+                <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+                <div>
+                    <strong>No se encontraron registros.</strong><br>
+                    Si el alumno está físicamente aquí, genere un Ticket Temporal usando el botón verde de arriba.
+                </div>
+            </div>
+        {% endfor %}
+    </div>
 {% endif %}
 
 <!-- Modal para Generar Ticket Rápido -->
-<div class="modal fade" id="modalTicket" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
+<div class="modal fade" id="modalTicket" tabindex="-1" aria-labelledby="modalTicketLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
             <form method="POST" action="{% url 'generar_ticket_rapido' %}">
                 {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Emisión de Ticket Temporal</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalTicketLabel"><i class="bi bi-ticket-detailed me-2"></i>Emisión de Ticket Temporal</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">CUI del Estudiante</label>
-                        <input type="text" name="cui" class="form-control" required maxlength="13">
+                <div class="modal-body p-4">
+                    <div class="alert alert-info small mb-4">
+                        Ingrese el CUI y nombres del alumno. El sistema generará un código para que el digitador lo busque y complete el expediente.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Nombres del Estudiante</label>
-                        <input type="text" name="nombres" class="form-control" required>
+                        <label class="form-label fw-bold">CUI del Estudiante (13 dígitos)</label>
+                        <input type="text" name="cui" class="form-control form-control-lg" required maxlength="13" minlength="13" pattern="\d{13}" title="Debe contener exactamente 13 números">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombres</label>
+                        <input type="text" name="nombres" class="form-control" required style="text-transform: uppercase;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Apellidos</label>
+                        <input type="text" name="apellidos" class="form-control" required style="text-transform: uppercase;">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Generar Registro en Blanco</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4 fw-bold">Generar e Imprimir</button>
                 </div>
             </form>
         </div>

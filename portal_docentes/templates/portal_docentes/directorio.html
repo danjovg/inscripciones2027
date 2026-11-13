@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directorio de Alumnos - Colegio Amigos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f4f7f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-brand {
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .filter-btn {
+            border-radius: 20px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+            box-shadow: 0 4px 6px rgba(13, 110, 253, 0.2);
+        }
+        .card-custom {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            background: white;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .whatsapp-link {
+            color: #25D366;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .whatsapp-link:hover {
+            color: #128C7E;
+            text-decoration: underline;
+        }
+        .badge-grado {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 500;
+            font-size: 0.85em;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+        .contact-list {
+            margin: 0;
+            padding-left: 15px;
+        }
+        .contact-list li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="#"><i class="bi bi-journal-text me-2"></i>Portal Docentes | Directorio</a>
+        <div class="d-flex text-white align-items-center">
+            <span class="me-3"><i class="bi bi-person-circle me-1"></i> Hola, {{ user.username }}</span>
+            <form action="{% url 'logout' %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-light"><i class="bi bi-box-arrow-right"></i> Salir</button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    
+    <!-- Sección de Búsqueda -->
+    <div class="card card-custom mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'directorio_alumnos' %}">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="q" value="{{ query }}" class="form-control border-start-0 ps-0" placeholder="Buscar alumno por nombres, apellidos o CUI...">
+                    <button class="btn btn-primary px-4" type="submit">Buscar</button>
+                    {% if query %}
+                        <a href="{% url 'directorio_alumnos' %}" class="btn btn-outline-secondary px-3">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Botones de Filtro por Grado -->
+    <div class="mb-4 d-flex flex-wrap align-items-center">
+        <span class="me-3 fw-bold text-muted"><i class="bi bi-funnel-fill me-1"></i> Filtrar por Grado:</span>
+        <button class="btn btn-outline-primary filter-btn active" onclick="filtrarGrado('Todos')">Todos</button>
+        
+        <!-- Extrayendo grados únicos de la lista de alumnos -->
+        {% regroup inscripciones by grado_a_cursar as grados_list %}
+        {% for grado in grados_list %}
+            {% if grado.grouper %}
+                <button class="btn btn-outline-primary filter-btn" onclick="filtrarGrado('{{ grado.grouper|escapejs }}')">
+                    {{ grado.grouper }}
+                </button>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Tabla de Directorio -->
+    <div class="card card-custom">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tablaDirectorio">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Apellidos y Nombres</th>
+                            <th>Grado</th>
+                            <th>WhatsApp Alumno</th>
+                            <th class="pe-4">WhatsApp Responsables</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inscripcion in inscripciones %}
+                        <tr class="alumno-row" data-grado="{{ inscripcion.grado_a_cursar|default:'' }}">
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark">{{ inscripcion.estudiante.apellidos }}</div>
+                                <div class="text-muted small">{{ inscripcion.estudiante.nombres }}</div>
+                            </td>
+                            <td>
+                                <span class="badge-grado">{{ inscripcion.grado_a_cursar|default:"Sin grado" }}</span>
+                            </td>
+                            <td>
+                                {% if inscripcion.estudiante.telefono %}
+                                    <a href="https://wa.me/502{{ inscripcion.estudiante.telefono }}" target="_blank" class="whatsapp-link">
+                                        <i class="bi bi-whatsapp"></i> {{ inscripcion.estudiante.telefono }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">No registrado</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4">
+                                <ul class="contact-list">
+                                    <!-- Iteramos los responsables vinculados -->
+                                    {% for vinculo in inscripcion.estudiante.estudiante_responsable_set.all %}
+                                        <li>
+                                            <span class="text-muted small">({{ vinculo.parentesco }})</span>
+                                            {{ vinculo.responsable.nombres }}: 
+                                            {% if vinculo.responsable.celular %}
+                                                <a href="https://wa.me/502{{ vinculo.responsable.celular }}" target="_blank" class="whatsapp-link">
+                                                    <i class="bi bi-whatsapp"></i> {{ vinculo.responsable.celular }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted small">Sin Celular</span>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+                                {% if query %}
+                                    <h5>No encontramos a nadie llamado "{{ query }}"</h5>
+                                {% else %}
+                                    <h5>Aún no hay alumnos oficialmente inscritos.</h5>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script de Filtrado Dinámico -->
+<script>
+    function filtrarGrado(gradoSeleccionado) {
+        // Actualizar estado visual de los botones
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if(btn.innerText.trim() === gradoSeleccionado) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Ocultar/Mostrar filas de la tabla
+        const filas = document.querySelectorAll('.alumno-row');
+        filas.forEach(fila => {
+            const gradoFila = fila.getAttribute('data-grado');
+            if (gradoSeleccionado === 'Todos' || gradoFila === gradoSeleccionado) {
+                fila.style.display = '';
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

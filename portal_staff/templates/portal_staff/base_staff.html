@@ -3,20 +3,101 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión Interna | Colegio Amigos</title>
-    <!-- Aislamiento de recursos: CSS propio de portal_staff[cite: 6] -->
+    <!-- Bootstrap 5 CSS e Íconos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- CSS para intl-tel-input (Banderas y Códigos de Área) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/css/intlTelInput.css">
+    <!-- Aislamiento de recursos: CSS propio de portal_staff -->
     <link rel="stylesheet" href="{% static 'portal_staff/css/admin_styles.css' %}">
+    <style>
+        .iti { width: 100%; }
+    </style>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">Panel Administrativo - Auxiliares</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="{% url 'dashboard' %}">
+                <img src="{% static 'portal_staff/img/logo_colegio.png' %}" alt="Logo" height="32" class="me-2">
+                Gestión Interna - Colegio Amigos
+            </a>
+            
+            {% if user.is_authenticated %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarStaff" aria-controls="navbarStaff" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarStaff">
+                {% with grupos=user.groups.all|join:"," %}
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+                    {% if user.is_superuser or "Auxiliares" in grupos or "Digitadores" in grupos or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active fw-bold text-white{% endif %}" href="{% url 'dashboard' %}">
+                            <i class="bi bi-door-open me-1"></i>Auxiliar (Puerta)
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if user.is_superuser or "Digitadores" in grupos or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'digitador' in request.path %}active fw-bold text-white{% endif %}" href="{% url 'panel_digitador' %}">
+                            <i class="bi bi-pc-display-horizontal me-1"></i>Digitador
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if user.is_superuser or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'secretaria' in request.path %}active fw-bold text-white{% endif %}" href="#">
+                            <i class="bi bi-folder-check me-1"></i>Secretaría General
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if user.is_superuser or "Dirección" in grupos %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'direccion' in request.path %}active fw-bold text-white{% endif %}" href="{% url 'panel_direccion' %}">
+                            <i class="bi bi-bar-chart-line me-1"></i>Dirección
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                {% endwith %}
+
+                <div class="d-flex align-items-center ms-auto mt-2 mt-lg-0">
+                    <div class="text-white-50 me-3 small d-none d-sm-flex align-items-center">
+                        <i class="bi bi-person-circle me-1 text-success fs-6"></i>
+                        <span class="text-white fw-semibold me-2">{{ user.username }}</span>
+                        {% for group in user.groups.all %}
+                            <span class="badge bg-secondary bg-opacity-50 text-light border border-secondary ms-1">{{ group.name }}</span>
+                        {% empty %}
+                            {% if user.is_superuser %}
+                                <span class="badge bg-primary ms-1">Supervisor</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <form method="post" action="{% url 'logout' %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
+                            <i class="bi bi-box-arrow-right me-1"></i> Salir
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </nav>
+
     <div class="container">
         {% block content %}{% endblock %}
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JS para intl-tel-input (Banderas) -->
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/js/intlTelInput.min.js"></script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

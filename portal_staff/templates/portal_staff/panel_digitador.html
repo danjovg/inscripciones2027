@@ -1,48 +1,113 @@
 {% extends "portal_staff/base_staff.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Panel de Digitadores</h2>
-    <span class="badge bg-primary fs-6">Fase: Auditoría y Contratos</span>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-pc-display-horizontal me-2 text-primary"></i>Panel de Digitadores</h2>
+        <p class="text-muted small mb-0">Bandeja de auditoría de datos y emisión de Contratos de Adhesión en PDF</p>
+    </div>
+    <!-- Pestañas de filtro rápido -->
+    <div class="btn-group shadow-sm mt-2 mt-md-0" role="group">
+        <a href="?estado=pendientes{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'pendientes' %}btn-primary fw-bold{% else %}btn-outline-primary bg-white{% endif %}">
+            <i class="bi bi-hourglass-split me-1"></i>Pendientes ({{ total_pendientes }})
+        </a>
+        <a href="?estado=inscritos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'inscritos' %}btn-success fw-bold{% else %}btn-outline-success bg-white{% endif %}">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Inscritos / Contratos PDF ({{ total_inscritos }})
+        </a>
+        <a href="?estado=todos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'todos' %}btn-dark fw-bold{% else %}btn-outline-dark bg-white{% endif %}">
+            Todos
+        </a>
+    </div>
 </div>
 
-<div class="card shadow-sm">
+<!-- Mensajes de confirmación -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Buscador por Ticket, CUI o Nombre -->
+<div class="card shadow-sm mb-4 border-0">
     <div class="card-body">
-        <h5 class="card-title mb-3">Expedientes Pendientes de Oficializar</h5>
+        <form method="GET" class="d-flex">
+            <input type="hidden" name="estado" value="{{ filtro_estado }}">
+            <input class="form-control form-control-lg me-2" type="search" name="q" value="{{ query }}" placeholder="Buscar alumno por código de Ticket, CUI, Nombres o Apellidos..." autofocus>
+            <button class="btn btn-primary btn-lg px-4" type="submit"><i class="bi bi-search me-1"></i> Buscar</button>
+            {% if query %}
+                <a href="{% url 'panel_digitador' %}?estado={{ filtro_estado }}" class="btn btn-outline-secondary btn-lg ms-2">Limpiar</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Expedientes -->
+<div class="card shadow-sm border-0">
+    <div class="card-body">
+        <h5 class="card-title mb-3 fw-bold text-secondary">
+            {% if filtro_estado == 'inscritos' %}
+                <i class="bi bi-check-circle-fill text-success me-1"></i>Alumnos Oficialmente Inscritos (Listos para Imprimir / Descargar Contrato)
+            {% elif filtro_estado == 'todos' %}
+                Todos los Expedientes Registrados
+            {% else %}
+                <i class="bi bi-clock-history text-warning me-1"></i>Expedientes Pendientes de Oficializar
+            {% endif %}
+        </h5>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th>Ticket</th>
                         <th>CUI</th>
                         <th>Estudiante</th>
                         <th>Grado a Cursar</th>
                         <th>Estado Actual</th>
-                        <th>Ticket</th>
-                        <th>Acción</th>
+                        <th class="text-end">Acciones / Contrato PDF</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for inscripcion in inscripciones %}
                     <tr>
-                        <td>{{ inscripcion.estudiante.cui }}</td>
-                        <td>{{ inscripcion.estudiante.nombres }} {{ inscripcion.estudiante.apellidos }}</td>
-                        <td>{{ inscripcion.grado_a_cursar.grado }}</td>
                         <td>
-                            {% if inscripcion.estado_solicitud == 'BORRADOR' %}
-                                <span class="badge bg-secondary">Borrador</span>
+                            <span class="badge bg-dark fs-6 font-monospace">{{ inscripcion.ticket_generado|default:"SIN TICKET" }}</span>
+                        </td>
+                        <td class="fw-semibold font-monospace">{{ inscripcion.estudiante.cui }}</td>
+                        <td class="fw-bold text-dark">{{ inscripcion.estudiante.nombres }} {{ inscripcion.estudiante.apellidos }}</td>
+                        <td>{{ inscripcion.grado_a_cursar|default:"<span class='text-danger small fw-bold'>Sin asignar</span>"|safe }}</td>
+                        <td>
+                            {% if inscripcion.estado_solicitud == 'INSCRITO' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>INSCRITO OFICIAL</span>
+                            {% elif 'borrador' in inscripcion.estado_solicitud|lower %}
+                                <span class="badge bg-secondary">Borrador / Ticket en Puerta</span>
                             {% else %}
-                                <span class="badge bg-warning text-dark">Ticket Generado</span>
+                                <span class="badge bg-warning text-dark">Preinscrito en Casa</span>
                             {% endif %}
                         </td>
-                        <td><span class="fw-bold text-primary">{{ inscripcion.ticket_generado|default:"N/A" }}</span></td>
-                        <td>
-                            <!-- Este botón llevará a la vista de edición total en el siguiente paso -->
-                            <a href="{% url 'portal_staff:editar_expediente' inscripcion.id %}" class="btn btn-sm btn-outline-primary">Auditar y Generar Contrato</a>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{% url 'editar_expediente' inscripcion.id %}" class="btn btn-sm btn-outline-primary fw-bold">
+                                    <i class="bi bi-pencil-square me-1"></i> Auditar / Editar
+                                </a>
+                                {% if inscripcion.grado_a_cursar %}
+                                <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}" class="btn btn-sm btn-success fw-bold" title="Abrir Vista de Impresión y Contrato">
+                                    <i class="bi bi-printer-fill me-1"></i> Ver / Imprimir Contrato
+                                </a>
+                                <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" class="btn btn-sm btn-danger fw-bold" title="Descargar PDF">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
+                                </a>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No hay preinscripciones pendientes en la bandeja.</td>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            No se encontraron expedientes en esta vista.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

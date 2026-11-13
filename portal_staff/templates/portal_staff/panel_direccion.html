@@ -1,0 +1,395 @@
+{% extends "portal_staff/base_staff.html" %}
+
+{% block content %}
+<!-- ENCABEZADO EJECUTIVO -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold text-dark">
+            <i class="bi bi-bar-chart-line-fill text-primary me-2"></i>Dashboard Ejecutivo de Dirección
+        </h2>
+        <p class="text-muted small mb-0">Control en tiempo real de matrícula, cupos por carrera y ampliaciones autorizadas</p>
+    </div>
+    <div class="d-flex gap-2 mt-2 mt-md-0">
+        <form method="POST" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="sincronizar_cupos">
+            <button type="submit" class="btn btn-outline-secondary btn-sm fw-bold">
+                <i class="bi bi-arrow-repeat me-1"></i> Auditar y Sincronizar Contadores
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- MENSAJES DE RETROALIMENTACIÓN -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm fw-semibold" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- TARJETAS DE RESUMEN GLOBAL (KPIs) -->
+<div class="row g-3 mb-4">
+    <!-- KPI 1: Inscritos Oficiales -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Inscritos Oficiales</span>
+                        <h2 class="fw-bold text-success mb-0 mt-1">{{ total_inscritos_colegio }}</h2>
+                    </div>
+                    <div class="bg-success bg-opacity-10 text-success rounded-circle p-3">
+                        <i class="bi bi-person-check-fill fs-3"></i>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 6px;">
+                    <div class="progress-bar bg-success" style="width: {{ porcentaje_global }}%"></div>
+                </div>
+                <small class="text-muted mt-1 d-block">{{ porcentaje_global }}% de la capacidad total ocupada</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 2: Capacidad Total y Espacios Libres -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Cupos Disponibles</span>
+                        <h2 class="fw-bold text-primary mb-0 mt-1">{{ total_disponibles_colegio }}</h2>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-3">
+                        <i class="bi bi-door-open-fill fs-3"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-3 d-block">
+                    Capacidad máxima global: <strong>{{ total_cupo_colegio }} alumnos</strong>
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 3: En Proceso (Preinscritos / Borradores) -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">En Cola / Preinscritos</span>
+                        <h2 class="fw-bold text-warning mb-0 mt-1">{{ total_en_proceso_colegio }}</h2>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-circle p-3">
+                        <i class="bi bi-hourglass-split fs-3"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-3 d-block">
+                    Pendientes de pasar con Digitador ({{ sin_grado }} sin grado aún)
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 4: Grados con Cupo Lleno -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Grados al Límite</span>
+                        <h2 class="fw-bold text-danger mb-0 mt-1">{{ grados_llenos }}</h2>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                        <i class="bi bi-exclamation-octagon-fill fs-3"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-3 d-block">
+                    Grados que requieren autorización para ampliar cupo
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BARRA DE FILTRO RÁPIDO EN TIEMPO REAL -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="filtroGradosInput" class="form-control border-start-0" placeholder="Filtrar grados en vivo por nombre, nivel (Básico, Diversificado...) o jornada...">
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="btn-group w-100" role="group">
+                    <button type="button" class="btn btn-outline-dark btn-sm active filtro-estado-btn" data-filter="todos">Todos</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm filtro-estado-btn" data-filter="danger">Llenos</button>
+                    <button type="button" class="btn btn-outline-warning btn-sm filtro-estado-btn" data-filter="warning">Casi Llenos</button>
+                    <button type="button" class="btn btn-outline-success btn-sm filtro-estado-btn" data-filter="success">Disponibles</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD VISUAL DE TARJETAS POR GRADO -->
+<div class="row g-4 mb-5" id="contenedorTarjetasGrados">
+    {% for item in datos_grados %}
+    <div class="col-md-6 col-lg-4 tarjeta-grado-item" 
+         data-texto="{{ item.instancia.grado|lower }} {{ item.instancia.nivel_educativo|lower }} {{ item.instancia.orientacion|default:''|lower }} {{ item.instancia.jornada|lower }}"
+         data-estado="{{ item.color_estado }}">
+        <div class="card h-100 border-0 shadow-sm">
+            <!-- Cabecera del Grado -->
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="badge bg-dark mb-1">{{ item.instancia.nivel_educativo }} — {{ item.instancia.jornada }}</span>
+                    <h5 class="fw-bold text-dark mb-0">{{ item.instancia.grado }}</h5>
+                    {% if item.instancia.orientacion %}
+                        <small class="text-primary fw-semibold">{{ item.instancia.orientacion }}</small>
+                    {% endif %}
+                </div>
+                <span class="badge bg-{{ item.color_estado }}">{{ item.etiqueta_estado }}</span>
+            </div>
+
+            <!-- Cuerpo Visual de Ocupación -->
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-end mb-2">
+                    <div>
+                        <span class="text-muted small d-block">Alumnos Inscritos Oficialmente</span>
+                        <span class="fs-2 fw-bold text-{{ item.color_estado }}">{{ item.inscritos }}</span>
+                        <span class="text-muted fs-5">/ {{ item.instancia.cupo_maximo }}</span>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-dark border fs-6">
+                            Libres: <strong>{{ item.disponibles }}</strong>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Barra de Progreso con Semáforo -->
+                <div class="progress mb-3" style="height: 12px; border-radius: 6px;">
+                    <div class="progress-bar bg-{{ item.color_estado }} progress-bar-striped" 
+                         role="progressbar" 
+                         style="width: {{ item.porcentaje_barra }}%;" 
+                         aria-valuenow="{{ item.porcentaje }}" aria-valuemin="0" aria-valuemax="100">
+                    </div>
+                </div>
+
+                <!-- Desglose en Cola y Precios -->
+                <div class="row g-2 text-center bg-light rounded p-2 mb-3 small">
+                    <div class="col-4 border-end">
+                        <span class="text-muted d-block">Preinscritos</span>
+                        <strong class="text-dark fs-6">{{ item.preinscritos }}</strong>
+                    </div>
+                    <div class="col-4 border-end">
+                        <span class="text-muted d-block">En Borrador</span>
+                        <strong class="text-secondary fs-6">{{ item.borradores }}</strong>
+                    </div>
+                    <div class="col-4">
+                        <span class="text-muted d-block">Mensualidad</span>
+                        <strong class="text-success">Q{{ item.instancia.cuota_mensual }}</strong>
+                    </div>
+                </div>
+
+                <!-- Control para Modificar o Ampliar Cupo con Confirmación Anti-Error de Teclazo -->
+                <form method="POST" class="form-modificar-cupo" 
+                      data-grado="{{ item.instancia.grado }} {{ item.instancia.orientacion|default:'' }} ({{ item.instancia.jornada }})"
+                      data-cupo-actual="{{ item.instancia.cupo_maximo }}"
+                      data-inscritos="{{ item.inscritos }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="actualizar_cupo">
+                    <input type="hidden" name="carrera_id" value="{{ item.instancia.id }}">
+                    
+                    <label class="form-label small fw-bold text-secondary mb-1">
+                        <i class="bi bi-sliders me-1"></i>Ajustar Límite de Cupo Máximo:
+                    </label>
+                    <div class="input-group">
+                        <button type="button" class="btn btn-outline-secondary btn-restar-cupo" title="Restar 1 espacio">-1</button>
+                        <input type="number" name="nuevo_cupo" class="form-control text-center fw-bold input-nuevo-cupo" 
+                               value="{{ item.instancia.cupo_maximo }}" min="{{ item.inscritos }}" required>
+                        <button type="button" class="btn btn-outline-secondary btn-sumar-cupo" title="Sumar 1 espacio">+1</button>
+                        <button type="button" class="btn btn-primary fw-bold btn-abrir-confirmacion">
+                            <i class="bi bi-shield-check me-1"></i>Aplicar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-warning text-center p-5">
+            <i class="bi bi-folder-x fs-1 d-block mb-2"></i>
+            No hay grados ni carreras configuradas aún en el sistema.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL DE CONFIRMACIÓN DE SEGURIDAD (ANTI-ERROR DE TECLAZO)                -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="modalConfirmarCupo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmación de Modificación de Cupo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3">Está a punto de modificar la capacidad oficial del grado:</p>
+                <div class="p-3 bg-light rounded border text-center mb-3">
+                    <h5 class="fw-bold text-primary mb-0" id="modalNombreGrado"></h5>
+                </div>
+
+                <div class="row text-center my-3 align-items-center">
+                    <div class="col-5">
+                        <span class="text-muted small d-block">Cupo Anterior</span>
+                        <span class="fs-3 fw-bold text-secondary" id="modalCupoAnterior"></span>
+                    </div>
+                    <div class="col-2">
+                        <i class="bi bi-arrow-right-circle-fill fs-2 text-warning"></i>
+                    </div>
+                    <div class="col-5">
+                        <span class="text-muted small d-block">Nuevo Cupo</span>
+                        <span class="fs-2 fw-bold text-success" id="modalCupoNuevo"></span>
+                    </div>
+                </div>
+
+                <div id="modalAlertaDiferencia" class="alert alert-info text-center fw-bold mb-0"></div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">
+                    Cancelar (Fue un error de teclazo)
+                </button>
+                <button type="button" class="btn btn-success fw-bold px-4" id="btnConfirmarEnvioCupo">
+                    <i class="bi bi-check-circle-fill me-1"></i> Sí, Confirmar Nuevo Cupo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let formularioPendiente = null;
+    const modalElement = document.getElementById('modalConfirmarCupo');
+    const modalBootstrap = new bootstrap.Modal(modalElement);
+
+    // Botones rápidos +1 y -1 en cada tarjeta
+    document.querySelectorAll('.form-modificar-cupo').forEach(function(form) {
+        const inputCupo = form.querySelector('.input-nuevo-cupo');
+        const btnRestar = form.querySelector('.btn-restar-cupo');
+        const btnSumar = form.querySelector('.btn-sumar-cupo');
+        const btnAplicar = form.querySelector('.btn-abrir-confirmacion');
+        const minInscritos = parseInt(form.dataset.inscritos, 10) || 0;
+
+        btnRestar.addEventListener('click', function() {
+            let val = parseInt(inputCupo.value, 10) || 0;
+            if (val > minInscritos) {
+                inputCupo.value = val - 1;
+            }
+        });
+
+        btnSumar.addEventListener('click', function() {
+            let val = parseInt(inputCupo.value, 10) || 0;
+            inputCupo.value = val + 1;
+        });
+
+        // Función que abre el Modal de Confirmación antes de enviar
+        function solicitarConfirmacion(e) {
+            if (e) e.preventDefault();
+
+            const nombreGrado = form.dataset.grado;
+            const cupoActual = parseInt(form.dataset.cupoActual, 10);
+            const nuevoCupo = parseInt(inputCupo.value, 10);
+
+            if (isNaN(nuevoCupo) || nuevoCupo < 0) {
+                alert('Por favor ingrese un número válido.');
+                return;
+            }
+
+            if (nuevoCupo === cupoActual) {
+                alert('El cupo ingresado (' + nuevoCupo + ') es idéntico al actual. No hay cambios que aplicar.');
+                return;
+            }
+
+            if (nuevoCupo < minInscritos) {
+                alert('No puede fijar un cupo menor a ' + minInscritos + ' porque ya hay esa cantidad de alumnos inscritos en este grado.');
+                inputCupo.value = cupoActual;
+                return;
+            }
+
+            formularioPendiente = form;
+            document.getElementById('modalNombreGrado').textContent = nombreGrado;
+            document.getElementById('modalCupoAnterior').textContent = cupoActual;
+            document.getElementById('modalCupoNuevo').textContent = nuevoCupo;
+
+            const diff = nuevoCupo - cupoActual;
+            const alertaBox = document.getElementById('modalAlertaDiferencia');
+
+            if (diff > 0) {
+                // Si el incremento es muy alto (ej. > 20 por un teclazo extra), pintamos alerta roja llamativa
+                if (diff >= 20) {
+                    alertaBox.className = 'alert alert-danger text-center fw-bold mb-0';
+                    alertaBox.innerHTML = '⚠️ ¡ATENCIÓN! Está ampliando <strong>+' + diff + ' espacios</strong> de golpe. Verifique que no haya presionado una tecla de más.';
+                } else {
+                    alertaBox.className = 'alert alert-success text-center fw-bold mb-0';
+                    alertaBox.innerHTML = 'Se ampliarán <strong>+' + diff + ' espacios</strong> adicionales en este grado.';
+                }
+            } else {
+                alertaBox.className = 'alert alert-warning text-center fw-bold mb-0';
+                alertaBox.innerHTML = 'Se reducirán <strong>' + diff + ' espacios</strong> en este grado.';
+            }
+
+            modalBootstrap.show();
+        }
+
+        btnAplicar.addEventListener('click', solicitarConfirmacion);
+        form.addEventListener('submit', solicitarConfirmacion);
+    });
+
+    // Confirmar y enviar finalmente al servidor
+    document.getElementById('btnConfirmarEnvioCupo').addEventListener('click', function() {
+        if (formularioPendiente) {
+            HTMLFormElement.prototype.submit.call(formularioPendiente);
+        }
+    });
+
+    // Filtro en vivo por texto y botones de semáforo
+    const inputFiltro = document.getElementById('filtroGradosInput');
+    const botonesEstado = document.querySelectorAll('.filtro-estado-btn');
+    let estadoSeleccionado = 'todos';
+
+    function filtrarTarjetas() {
+        const texto = (inputFiltro.value || '').toLowerCase().trim();
+        document.querySelectorAll('.tarjeta-grado-item').forEach(function(card) {
+            const coincideTexto = card.dataset.texto.includes(texto);
+            const coincideEstado = (estadoSeleccionado === 'todos') || (card.dataset.estado === estadoSeleccionado);
+            card.style.display = (coincideTexto && coincideEstado) ? '' : 'none';
+        });
+    }
+
+    if (inputFiltro) {
+        inputFiltro.addEventListener('input', filtrarTarjetas);
+    }
+
+    botonesEstado.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            botonesEstado.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            estadoSeleccionado = btn.dataset.filter;
+            filtrarTarjetas();
+        });
+    });
+});
+</script>
+{% endblock %}

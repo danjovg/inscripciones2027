@@ -4,48 +4,562 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h3 class="mb-4">Auditoría de Expediente - CUI: {{ inscripcion.estudiante.cui }}</h3>
-
-        <form method="POST">
-            {% csrf_token %}
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Datos del Estudiante y Grado a Cursar</h5>
+        <!-- ENCABEZADO PROTAGONISTA CON LOS DATOS DEL ALUMNO -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 bg-white p-4 rounded shadow-sm border-start border-5 border-primary">
+            <div>
+                <span class="text-uppercase text-primary fw-bold small d-block mb-1">
+                    <i class="bi bi-folder2-open me-1"></i>Expediente de Inscripción — Ciclo 2027
+                </span>
+                <h2 class="mb-2 fw-bold text-dark">
+                    {{ estudiante.nombres|default:"SIN NOMBRES" }} {{ estudiante.apellidos|default:"SIN APELLIDOS" }}
+                </h2>
+                <div class="d-flex flex-wrap gap-3 align-items-center text-muted">
+                    <span><i class="bi bi-person-vcard me-1 text-primary"></i>CUI: <strong class="text-dark font-monospace fs-6">{{ estudiante.cui }}</strong></span>
+                    <span>|</span>
+                    <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i>Grado a Cursar: <strong class="text-dark">{{ inscripcion.grado_a_cursar|default:"Pendiente de asignar" }}</strong></span>
+                    <span>|</span>
+                    <span><i class="bi bi-ticket-perforated me-1 text-primary"></i>Ticket: <strong class="text-primary fs-6">{{ inscripcion.ticket_generado|default:"N/A" }}</strong></span>
+                    <span>|</span>
+                    <span>Estado: <span class="badge bg-warning text-dark">{{ inscripcion.estado_solicitud }}</span></span>
                 </div>
-                <div class="card-body">
+            </div>
+            <a href="{% url 'panel_digitador' %}" class="btn btn-outline-secondary mt-3 mt-lg-0 fw-semibold">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Bandeja
+            </a>
+        </div>
+
+        <!-- GUÍA RÁPIDA DE AUDITORÍA PARA EL DIGITADOR -->
+        <div class="alert alert-info border-0 shadow-sm mb-4">
+            <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2"></i>Lista de Verificación Obligatoria para el Digitador:</h6>
+            <div class="row small">
+                <div class="col-md-4">
+                    <strong>Sección A — Datos del Alumno y Grado:</strong>
+                    <ul class="mb-0 ps-3">
+                        <li>Verifique Nombres, Apellidos y Fecha de Nacimiento según certificado de RENAP (CUI).</li>
+                        <li>Seleccione el <strong>Grado 2027</strong>. Solo si es Primer Ingreso se pedirán los datos del colegio anterior.</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <strong>Sección B — ¿Quién firmará hoy el Contrato?:</strong>
+                    <ul class="mb-0 ps-3">
+                        <li>Pregunte quién es el adulto presente hoy. Si no es quien aparece como <strong>"FIRMANTE EN CONTRATO"</strong>, presione <em>"Elegir como Firmante de Hoy"</em> o regístrelo con su DPI.</li>
+                        <li>Verifique que el firmante no tenga etiquetas rojas de datos faltantes.</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <strong>Sección C — Contactos de Emergencia (Sin DPI):</strong>
+                    <ul class="mb-0 ps-3">
+                        <li>Pregunte a quién más llamar en caso de emergencia (Abuelos, Tíos, Encargados).</li>
+                        <li>Agréguelos con su número de teléfono (la banderita agrega el área automáticamente).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- MENSAJES DEL SISTEMA -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm fw-semibold" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- ================================================================================= -->
+        <!-- SECCIÓN A: DATOS DEL ESTUDIANTE, FICHA MÉDICA Y GRADO A CURSAR 2027               -->
+        <!-- ================================================================================= -->
+        <form method="POST" id="form-alumno-principal">
+            {% csrf_token %}
+            <div class="card shadow-sm mb-4 border-0" id="seccion-alumno">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-mortarboard-fill me-2"></i>Sección A: Datos del Estudiante, Ficha Médica y Grado a Cursar 2027</h5>
+                    <small class="text-white-50">Los campos adicionales (enfermedades, impedimentos, "Otro" o colegio anterior) se despliegan automáticamente solo cuando corresponden.</small>
+                </div>
+                <div class="card-body p-4">
                     <div class="row">
                         {{ form_estudiante|crispy }}
                     </div>
-                    <hr>
-                    <div class="row">
-                        {{ form_inscripcion|crispy }}
+
+                    <hr class="my-4 border-primary">
+
+                    <h5 class="fw-bold text-primary mb-2"><i class="bi bi-journal-check me-2"></i>Asignación de Grado y Establecimiento de Procedencia</h5>
+                    <div class="row bg-light p-3 rounded border mb-3">
+                        <div class="col-12 mb-2">
+                            {{ form_inscripcion.grado_a_cursar|as_crispy_field }}
+                        </div>
+
+                        <!-- Checkbox de Primer Ingreso (Se muestra solo si el grado está configurado como MANUAL en la BD) -->
+                        <div class="col-12 mb-2" id="contenedor-check-nuevo-ingreso" style="display: none;">
+                            <div class="p-2 bg-white rounded border border-primary">
+                                {{ form_inscripcion.es_nuevo_ingreso|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <!-- Bloque de datos de Colegio Anterior (Se muestra si el grado es OBLIGATORIO o si marcan el checkbox) -->
+                        <div class="col-12" id="contenedor-datos-colegio-anterior" style="display: none;">
+                            <div class="alert alert-warning small py-2 mb-3">
+                                <i class="bi bi-building-exclamation me-1"></i><strong>Estudiante de Primer Ingreso:</strong> Complete los datos del establecimiento de procedencia.
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8">{{ form_inscripcion.colegio_anterior|as_crispy_field }}</div>
+                                <div class="col-md-4">{{ form_inscripcion.promedio|as_crispy_field }}</div>
+                                <div class="col-12">{{ form_inscripcion.razon_retiro|as_crispy_field }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="submit" name="accion" value="actualizar" class="btn btn-primary fw-bold px-4">
+                            <i class="bi bi-floppy-fill me-2"></i>Guardar Datos del Alumno y Grado
+                        </button>
                     </div>
                 </div>
-            </div>
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Datos del Responsable Familiar</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {{ form_responsable|crispy }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Botones de Acción Final del Digitador -->
-            <div class="d-flex justify-content-between mb-5">
-                <button type="submit" name="accion" value="actualizar" class="btn btn-outline-primary btn-lg">
-                    Guardar Correcciones
-                </button>
-
-                <button type="submit" name="accion" value="oficializar" class="btn btn-success btn-lg" onclick="return confirm('¿Está seguro de Oficializar la Inscripción? Esto generará el contrato y restará un cupo del grado seleccionado.');">
-                    Oficializar Inscripción e Imprimir Contrato
-                </button>
             </div>
         </form>
+
+        <!-- ================================================================================= -->
+        <!-- SECCIÓN B: RESPONSABLES LEGALES Y ELECCIÓN DEL FIRMANTE DEL CONTRATO              -->
+        <!-- ================================================================================= -->
+        <div class="card shadow-sm mb-4 border-0" id="seccion-responsables">
+            <div class="card-header bg-success text-white py-3 d-flex flex-wrap justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill me-2"></i>Sección B: Responsables Familiares y Elección de Firmante del Contrato (Con DPI)</h5>
+                    <small class="text-white-50">Si hoy se presentó otro familiar a inscribir, selecciónelo como "Firmante de Hoy" o agréguelo con su DPI.</small>
+                </div>
+                <a href="?nuevo_resp=1#form-edicion-responsable" class="btn btn-light btn-sm fw-bold text-success shadow-sm mt-2 mt-md-0">
+                    <i class="bi bi-person-plus-fill me-1"></i> Agregar Nuevo Responsable / Acompañante (Con DPI)
+                </a>
+            </div>
+
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-card-checklist me-1"></i>Familiares registrados para {{ estudiante.nombres }} (Elija quién firma hoy el contrato):</h6>
+                
+                {% if vinculos %}
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th>¿Quién Firma el Contrato Hoy?</th>
+                                <th>Parentesco</th>
+                                <th>DPI / Documento</th>
+                                <th>Nombre Completo</th>
+                                <th>Teléfonos (Con Área)</th>
+                                <th>Auditoría de Datos para Contrato</th>
+                                <th class="text-end">Editar / Quitar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in vinculos %}
+                            <tr class="{% if v.es_contacto_principal %}table-success border-success{% endif %}">
+                                <td>
+                                    {% if v.es_contacto_principal %}
+                                        <span class="badge bg-success fs-6 py-2 px-3 shadow-sm">
+                                            <i class="bi bi-pen-fill me-1"></i>FIRMANTE EN CONTRATO
+                                        </span>
+                                    {% else %}
+                                        <form method="POST" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="accion" value="hacer_principal">
+                                            <input type="hidden" name="vinculo_id" value="{{ v.id }}">
+                                            <button type="submit" class="btn btn-outline-success btn-sm fw-bold">
+                                                <i class="bi bi-check2-circle me-1"></i>Elegir como Firmante de Hoy
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold">{{ v.parentesco }}</td>
+                                <td class="font-monospace fw-semibold">{{ v.responsable.dpi }}</td>
+                                <td class="fw-bold text-dark">{{ v.responsable.nombres }} {{ v.responsable.apellidos }}</td>
+                                <td>
+                                    <div><i class="bi bi-phone me-1"></i><strong>{{ v.responsable.celular|default:"Sin celular" }}</strong></div>
+                                    {% if v.responsable.tiene_whatsapp %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success small"><i class="bi bi-whatsapp"></i> WhatsApp Activo</span>
+                                    {% endif %}
+                                    {% if v.responsable.telefono_fijo %}
+                                        <div class="small text-muted">Fijo/Casa: {{ v.responsable.telefono_fijo }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    <div class="mb-1"><strong>Dirección:</strong> {{ v.responsable.direccion|default:"<span class='badge bg-danger'>FALTA DIRECCIÓN</span>"|safe }}</div>
+                                    <div>
+                                        <strong>Est. Civil:</strong> {{ v.responsable.estado_civil|default:"<span class='badge bg-danger'>FALTA</span>"|safe }} |
+                                        <strong>Profesión:</strong> {{ v.responsable.profesion|default:"<span class='badge bg-danger'>FALTA</span>"|safe }}
+                                        {% if v.responsable.edad %} | <strong>Edad:</strong> {{ v.responsable.edad }} años{% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end gap-1">
+                                        <a href="?editar_resp={{ v.responsable.dpi }}#form-edicion-responsable" class="btn btn-primary btn-sm fw-bold">
+                                            <i class="bi bi-pencil-square me-1"></i>Editar en BD
+                                        </a>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('¿Desvincular este responsable del alumno?');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="accion" value="desvincular_responsable">
+                                            <input type="hidden" name="vinculo_id" value="{{ v.id }}">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Quitar vínculo">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-warning d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-danger"></i>
+                    <div>
+                        <strong>Este estudiante aún no tiene responsables registrados.</strong><br>
+                        Ingrese abajo los datos de la persona mayor de edad con DPI que se presentó hoy a firmar el contrato.
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Sub-formulario desplegable para Editar en la BD un Responsable existente o Crear uno Nuevo -->
+                <div id="form-edicion-responsable" class="{% if not mostrar_form_responsable %}d-none{% endif %} bg-light p-4 rounded border border-success mt-3">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h6 class="fw-bold text-success mb-0">
+                            {% if responsable_a_editar %}
+                                <i class="bi bi-pencil-fill me-1"></i>Editando en Base de Datos a: {{ responsable_a_editar.nombres }} {{ responsable_a_editar.apellidos }} (DPI: {{ responsable_a_editar.dpi }})
+                            {% else %}
+                                <i class="bi bi-person-plus-fill me-1"></i>Registrar Nuevo Responsable / Firmante Legal (Con DPI)
+                            {% endif %}
+                        </h6>
+                        {% if vinculos %}
+                        <a href="{% url 'editar_expediente' inscripcion.id %}#seccion-responsables" class="btn btn-sm btn-outline-secondary">Cerrar formulario</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="alert alert-warning small py-2 mb-3">
+                        <i class="bi bi-lightbulb-fill me-1"></i><strong>Indicaciones:</strong> Seleccione la banderita del país si el número es extranjero (ej. EE. UU. +1). Verifique que <strong>Dirección</strong>, <strong>Profesión</strong> y <strong>Estado Civil</strong> estén completos para el contrato.
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="guardar_responsable">
+                        
+                        <div class="row">
+                            {{ form_responsable|crispy }}
+                        </div>
+
+                        <div class="form-check form-switch mt-3 p-3 bg-white rounded border border-success">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" name="es_contacto_principal" id="id_es_principal_check" {% if not vinculo_a_editar or vinculo_a_editar.es_contacto_principal %}checked{% endif %}>
+                            <label class="form-check-label fw-bold text-success" for="id_es_principal_check">
+                                Esta es la persona presente hoy que FIRMARÁ EL CONTRATO DE ADHESIÓN 2027
+                            </label>
+                        </div>
+
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-success fw-bold px-4">
+                                <i class="bi bi-save me-1"></i> Guardar Responsable en Base de Datos
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================================= -->
+        <!-- SECCIÓN C: CONTACTOS DE EMERGENCIA ADICIONALES (SIN DPI - CANTIDAD ILIMITADA)     -->
+        <!-- ================================================================================= -->
+        <div class="card shadow-sm mb-4 border-0" id="seccion-emergencias">
+            <div class="card-header bg-warning text-dark py-3">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-telephone-inbound-fill me-2"></i>Sección C: Contactos de Emergencia Adicionales (Sin DPI - Exclusivo Digitadores)</h5>
+                <small>Agregue abuelos, tíos, hermanos mayores, encargados de bus o vecinos autorizados. No requiere número de DPI.</small>
+            </div>
+            <div class="card-body p-4">
+                <div class="row">
+                    <div class="col-lg-7 mb-3 mb-lg-0">
+                        <h6 class="fw-bold text-secondary mb-3">Contactos de emergencia registrados para {{ estudiante.nombres }}:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre Completo</th>
+                                        <th>Parentesco / Relación</th>
+                                        <th>Teléfono Celular (Con Área)</th>
+                                        <th class="text-center">Quitar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ce in contactos_emergencia %}
+                                    <tr>
+                                        <td class="fw-bold">{{ ce.nombre_completo }}</td>
+                                        <td><span class="badge bg-secondary">{{ ce.parentesco }}</span></td>
+                                        <td class="fw-semibold text-primary"><i class="bi bi-telephone-fill me-1"></i>{{ ce.celular }}</td>
+                                        <td class="text-center">
+                                            <form method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar este contacto de emergencia?');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="accion" value="eliminar_emergencia">
+                                                <input type="hidden" name="emergencia_id" value="{{ ce.id }}">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-3">
+                                            No se han registrado contactos de emergencia adicionales aún.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-5">
+                        <div class="bg-light p-3 rounded border border-warning">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-plus-circle-fill text-warning me-1"></i>Agregar Nuevo Contacto de Emergencia</h6>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="accion" value="agregar_emergencia">
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold mb-1">Nombre Completo *</label>
+                                    {{ form_emergencia.nombre_completo }}
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-bold mb-1">Parentesco *</label>
+                                    {{ form_emergencia.parentesco }}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold mb-1">Celular (Con banderita de área) *</label>
+                                    {{ form_emergencia.celular }}
+                                </div>
+                                <button type="submit" class="btn btn-warning w-100 fw-bold text-dark">
+                                    <i class="bi bi-plus-lg me-1"></i> Agregar a la Lista de Emergencia
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================================= -->
+        <!-- CIERRE, OFICIALIZACIÓN Y GENERACIÓN DE CONTRATO PDF (CON MODAL DISEÑADO)          -->
+        <!-- ================================================================================= -->
+        <div class="card shadow-sm border-0 mb-5">
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center bg-white p-4 rounded border-top border-4 border-success">
+                <div class="mb-3 mb-md-0">
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-file-earmark-check-fill text-success me-2"></i>Cierre de Auditoría y Emisión de Contrato
+                    </h5>
+                    <small class="text-muted">
+                        El contrato se generará a nombre de quien tenga la etiqueta verde <strong>"FIRMANTE EN CONTRATO"</strong> en la Sección B.
+                    </small>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    {% if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.grado_a_cursar %}
+                        <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}" class="btn btn-outline-dark btn-lg fw-bold">
+                            <i class="bi bi-printer-fill me-2"></i>Vista Previa e Imprimir Contrato
+                        </a>
+                        <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" class="btn btn-danger btn-lg fw-bold">
+                            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Descargar PDF
+                        </a>
+                    {% endif %}
+
+                    <!-- Botón que abre el Modal estilizado de Bootstrap en lugar del alert nativo del navegador -->
+                    <button type="button" class="btn btn-success btn-lg px-4 fw-bold shadow" data-bs-toggle="modal" data-bs-target="#modalOficializarInscripcion">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        {% if inscripcion.estado_solicitud == 'INSCRITO' %}
+                            Actualizar y Generar Contrato PDF
+                        {% else %}
+                            Oficializar Inscripción y Generar Contrato PDF
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL DE CONFIRMACIÓN ESTILIZADO (ACORDE AL DISEÑO DEL SISTEMA) -->
+        <div class="modal fade" id="modalOficializarInscripcion" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white py-3">
+                        <h5 class="modal-title fw-bold">
+                            <i class="bi bi-shield-check me-2"></i>Confirmar Oficialización y Emisión de Contrato
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="text-muted mb-3">Verifique los datos finales antes de emitir el contrato oficial:</p>
+
+                        <div class="bg-light p-3 rounded border mb-3">
+                            <div class="mb-2">
+                                <span class="text-muted small d-block">ESTUDIANTE:</span>
+                                <strong class="fs-5 text-dark">{{ estudiante.nombres }} {{ estudiante.apellidos }}</strong>
+                                <span class="badge bg-secondary ms-1">CUI: {{ estudiante.cui }}</span>
+                            </div>
+                            <hr class="my-2">
+                            <div>
+                                <span class="text-muted small d-block">FIRMANTE SELECCIONADO PARA EL CONTRATO (SECCIÓN B):</span>
+                                {% if firmante_actual %}
+                                    <strong class="text-success"><i class="bi bi-pen-fill me-1"></i>{{ firmante_actual.responsable.nombres }} {{ firmante_actual.responsable.apellidos }}</strong>
+                                    <span class="small text-muted">({{ firmante_actual.parentesco }} — DPI: {{ firmante_actual.responsable.dpi }})</span>
+                                {% else %}
+                                    <span class="badge bg-danger">⚠️ Aún no ha seleccionado un Firmante en la Sección B</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <ul class="small text-secondary mb-0 ps-3">
+                            <li class="mb-1">Se guardarán todos los cambios realizados en la <strong>Sección A (Alumno y Grado)</strong>.</li>
+                            <li class="mb-1">Se descontará <strong>1 cupo oficial</strong> del grado asignado y se bloqueará la edición pública.</li>
+                            <li>Se abrirá inmediatamente el <strong>Contrato de Adhesión y la Ficha Informativa</strong> listos para imprimir o descargar en PDF.</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">
+                            Seguir Revisando
+                        </button>
+                        <button type="submit" form="form-alumno-principal" name="accion" value="oficializar" class="btn btn-success fw-bold px-4">
+                            <i class="bi bi-printer-fill me-2"></i>Sí, Oficializar y Abrir Contrato PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // =========================================================================
+    // 1. INICIALIZAR BANDERITAS (intl-tel-input) EN TODOS LOS TELÉFONOS
+    // =========================================================================
+    const phoneInputs = document.querySelectorAll('.telefono-internacional');
+    const itiInstances = [];
+
+    phoneInputs.forEach(function(input) {
+        const iti = window.intlTelInput(input, {
+            initialCountry: "gt",
+            preferredCountries: ["gt", "us", "mx", "sv", "hn"],
+            separateDialCode: true,
+            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/js/utils.js",
+        });
+        itiInstances.push({ input: input, iti: iti });
+    });
+
+    // Al enviar cualquier formulario, inyectar el número completo con código de área (ej. +50212345678)
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            itiInstances.forEach(function(instance) {
+                if (instance.input.value.trim() !== '') {
+                    const fullNumber = instance.iti.getNumber();
+                    if (fullNumber) {
+                        instance.input.value = fullNumber;
+                    }
+                }
+            });
+        });
+    });
+
+    // =========================================================================
+    // 2. CAMPOS CONDICIONALES: "VIVE CON OTRO" Y "DEPENDE DE OTRO"
+    // =========================================================================
+    function setupOtroField(selectId, otroInputId) {
+        const selectEl = document.getElementById(selectId);
+        const otroInput = document.getElementById(otroInputId);
+        if (selectEl && otroInput) {
+            const container = document.getElementById('div_' + otroInputId) || otroInput.closest('.mb-3');
+            const evaluarOtro = () => {
+                if (selectEl.value && selectEl.value.includes('Otro')) {
+                    if (container) container.style.display = 'block';
+                } else {
+                    if (container) container.style.display = 'none';
+                    otroInput.value = '';
+                }
+            };
+            evaluarOtro();
+            selectEl.addEventListener('change', evaluarOtro);
+        }
+    }
+    setupOtroField('id_vive_con', 'id_vive_con_otro');
+    setupOtroField('id_depende_de', 'id_depende_de_otro');
+
+    // =========================================================================
+    // 3. CAMPOS CONDICIONALES: ENFERMEDADES E IMPEDIMENTO FÍSICO
+    // =========================================================================
+    function setupCheckboxField(checkId, textInputId) {
+        const checkEl = document.getElementById(checkId);
+        const textInput = document.getElementById(textInputId);
+        if (checkEl && textInput) {
+            const container = document.getElementById('div_' + textInputId) || textInput.closest('.mb-3');
+            const evaluarCheck = () => {
+                if (checkEl.checked) {
+                    if (container) container.style.display = 'block';
+                } else {
+                    if (container) container.style.display = 'none';
+                    textInput.value = '';
+                }
+            };
+            evaluarCheck();
+            checkEl.addEventListener('change', evaluarCheck);
+        }
+    }
+    setupCheckboxField('id_tiene_enfermedad', 'id_enfermedades_padece');
+    setupCheckboxField('id_impedimento_fisico', 'id_detalle_impedimento');
+
+    // =========================================================================
+    // 4. LÓGICA DINÁMICA DE GRADO A CURSAR (OBLIGATORIO / MANUAL / OCULTO)
+    // =========================================================================
+    const configGrados = {{ config_grados_json|safe }};
+    const selectGrado = document.getElementById('id_grado_a_cursar');
+    const checkNuevoIngreso = document.getElementById('id_es_nuevo_ingreso');
+    const divCheckNuevo = document.getElementById('contenedor-check-nuevo-ingreso');
+    const divDatosColegio = document.getElementById('contenedor-datos-colegio-anterior');
+    const inputColegio = document.getElementById('id_colegio_anterior');
+    const inputPromedio = document.getElementById('id_promedio');
+    const inputRazon = document.getElementById('id_razon_retiro');
+
+    function evaluarGradoDigitador() {
+        if (!selectGrado) return;
+        const gradoId = String(selectGrado.value);
+        const modo = configGrados[gradoId] || 'OCULTO';
+
+        if (!gradoId) {
+            divCheckNuevo.style.display = 'none';
+            divDatosColegio.style.display = 'none';
+            return;
+        }
+
+        if (modo === 'OBLIGATORIO') {
+            // Ej. Primero Básico: Siempre pide colegio anterior sin preguntar
+            divCheckNuevo.style.display = 'none';
+            if (checkNuevoIngreso) checkNuevoIngreso.checked = true;
+            divDatosColegio.style.display = 'block';
+        } else if (modo === 'MANUAL') {
+            // Ej. Segundo Básico: Muestra el checkbox para que el digitador marque solo si es primer ingreso
+            divCheckNuevo.style.display = 'block';
+            divDatosColegio.style.display = (checkNuevoIngreso && checkNuevoIngreso.checked) ? 'block' : 'none';
+        } else {
+            // OCULTO: Nunca pide colegio anterior y deja todo como opcional/limpio
+            divCheckNuevo.style.display = 'none';
+            if (checkNuevoIngreso) checkNuevoIngreso.checked = false;
+            divDatosColegio.style.display = 'none';
+            if (inputColegio) inputColegio.value = '';
+            if (inputPromedio) inputPromedio.value = '';
+            if (inputRazon) inputRazon.value = '';
+        }
+    }
+
+    if (selectGrado) {
+        evaluarGradoDigitador();
+        selectGrado.addEventListener('change', evaluarGradoDigitador);
+    }
+    if (checkNuevoIngreso) {
+        checkNuevoIngreso.addEventListener('change', evaluarGradoDigitador);
+    }
+});
+</script>
 {% endblock %}

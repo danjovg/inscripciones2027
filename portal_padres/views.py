@@ -19,14 +19,18 @@ def ingreso_cui(request):
         if cui and len(cui) == 13:
             inscripcion_existente = Inscripcion.objects.filter(estudiante__cui=cui, estado_solicitud='INSCRITO').first()
             if inscripcion_existente:
-                messages.warning(request, f'El alumno ya se encuentra inscrito oficialmente. Su código es {inscripcion_existente.ticket_generado}. Si desea realizar una modificación, acérquese al colegio.')
-                return redirect('ingreso_cui')
+                # CAMBIO: Redirigimos a la nueva vista en lugar de recargar el inicio
+                return redirect('alumno_inscrito', cui=cui)
             return redirect('formulario', cui=cui)
     return render(request, 'portal_padres/ingreso_cui.html')
 
 def formulario_preinscripcion(request, cui):
     estudiante, created = Estudiante.objects.get_or_create(cui=cui)
     inscripcion, _ = Inscripcion.objects.get_or_create(estudiante=estudiante)
+
+    if inscripcion.estado_solicitud == 'INSCRITO':
+        # CAMBIO: Redirigimos a la nueva vista para bloquear accesos por URL directa
+        return redirect('alumno_inscrito', cui=cui)
     
     # Buscamos al principal si existe para precargarlo en el formulario visible
     relacion_principal = EstudianteResponsable.objects.filter(estudiante=estudiante, es_contacto_principal=True).first()
@@ -213,3 +217,14 @@ def buscar_dpi_ajax(request, dpi):
         data = {'existe': False}
     
     return JsonResponse(data)
+
+# --- AGREGA ESTA NUEVA FUNCIÓN AL FINAL DEL ARCHIVO ---
+def alumno_inscrito(request, cui):
+    """Vista de solo lectura para expedientes ya oficializados por los digitadores."""
+    inscripcion = get_object_or_404(Inscripcion, estudiante__cui=cui, estado_solicitud='INSCRITO')
+    
+    context = {
+        'inscripcion': inscripcion,
+        'estudiante': inscripcion.estudiante,
+    }
+    return render(request, 'portal_padres/alumno_inscrito.html', context)

@@ -1,0 +1,562 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato {{ correlativo }} - {{ estudiante.nombres }} {{ estudiante.apellidos }}</title>
+    <style>
+        /* Configuración exacta para Tamaño Oficio (8.5 x 13 pulgadas / 21.59cm x 33.02cm) */
+        @page {
+            size: 8.5in 13in;
+            margin: 1.5cm 1.8cm 1.5cm 1.8cm;
+        }
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 10.5pt;
+            line-height: 1.35;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+        .no-print-bar {
+            background-color: #212529;
+            color: #fff;
+            padding: 12px 24px;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 4px solid #198754;
+        }
+        .no-print-bar a, .no-print-bar button {
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .btn-print { background-color: #198754; }
+        .btn-pdf { background-color: #0d6efd; }
+        .btn-back { background-color: #6c757d; }
+
+        @media print {
+            .no-print-bar { display: none !important; }
+            .contenedor-hoja { max-width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+        }
+
+        .contenedor-hoja {
+            max-width: 816px; /* 8.5 pulgadas */
+            margin: 0 auto 40px auto;
+            background: #fff;
+            padding: 20px 35px;
+        }
+        .encabezado-contrato {
+            text-align: center;
+            font-weight: bold;
+            font-size: 12pt;
+            margin-bottom: 4px;
+        }
+        .meta-derecha {
+            text-align: right;
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .parrafo {
+            text-align: justify;
+            margin-bottom: 8px;
+        }
+        .clausula-titulo {
+            font-weight: bold;
+        }
+        .lista-clausula {
+            margin: 3px 0 6px 18px;
+            padding-left: 14px;
+            text-align: justify;
+        }
+        .lista-clausula li {
+            margin-bottom: 3px;
+        }
+        table.tabla-cuotas-dos-col {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 6px 0 10px 0;
+            font-size: 10pt;
+        }
+        table.tabla-cuotas-dos-col th, table.tabla-cuotas-dos-col td {
+            border: 1px solid #000;
+            padding: 5px 10px;
+        }
+        table.tabla-cuotas-dos-col th {
+            text-align: center;
+            font-weight: bold;
+        }
+        table.tabla-mineduc {
+            width: 92%;
+            margin: 4px auto 10px auto;
+            border-collapse: collapse;
+            font-size: 9.5pt;
+        }
+        table.tabla-mineduc th, table.tabla-mineduc td {
+            border: 1px solid #000;
+            padding: 3px 8px;
+        }
+        table.tabla-mineduc th {
+            text-align: center;
+            font-weight: bold;
+        }
+        .titulo-jornada-tabla {
+            text-align: center;
+            font-weight: bold;
+            font-size: 10pt;
+            margin-top: 6px;
+            margin-bottom: 2px;
+        }
+        .bloque-firmas {
+            margin-top: 30px;
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+        .contenedor-firma-rep {
+            height: 75px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: -14px;
+        }
+        .img-firma-rep {
+            max-height: 95px;
+            width: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .salto-pagina {
+            page-break-before: always;
+        }
+        .ficha-header {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
+        .cuadro-foto {
+            width: 3cm;
+            height: 3.5cm;
+            border: 1px solid #000;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 9pt;
+            font-style: italic;
+        }
+        .ficha-seccion {
+            background-color: #e9ecef;
+            border: 1px solid #000;
+            padding: 4px 8px;
+            font-weight: bold;
+            font-size: 10.5pt;
+            margin-top: 12px;
+            margin-bottom: 8px;
+        }
+        .tabla-ficha {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+        .tabla-ficha td {
+            padding: 4px 6px;
+            border-bottom: 1px dotted #888;
+            vertical-align: top;
+        }
+        .nota-legal {
+            border: 1px solid #000;
+            padding: 10px 14px;
+            margin-top: 14px;
+            font-size: 9.8pt;
+            text-align: justify;
+            background-color: #fafafa;
+        }
+    </style>
+</head>
+<body>
+
+    {% if not modo_weasyprint %}
+    <div class="no-print-bar">
+        <div>
+            <strong>Vista Oficial en Tamaño Oficio</strong> — Correlativo: <span style="color: #4ade80;">{{ correlativo }}</span>
+            <small style="margin-left: 10px; color: #ccc;">(Al imprimir, seleccione Tamaño de papel: Oficio / Legal)</small>
+        </div>
+        <div>
+            <a href="{% url 'editar_expediente' inscripcion.id %}" class="btn-back">← Volver al Expediente</a>
+            <button onclick="window.print();" class="btn-print">🖨️ Imprimir (Tamaño Oficio)</button>
+            <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" class="btn-pdf">📄 Descargar PDF</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="contenedor-hoja">
+        <!-- =================================================================== -->
+        <!-- DOCUMENTO 1: CONTRATO DE ADHESIÓN DIACO (TAMAÑO OFICIO)             -->
+        <!-- =================================================================== -->
+        <div class="encabezado-contrato">
+            CONTRATO DE ADHESIÓN POR PRESTACIÓN DE SERVICIOS EDUCATIVOS<br>
+            COLEGIO EVANGÉLICO MIXTO “AMIGOS”
+        </div>
+
+        <div class="meta-derecha">
+            Correlativo interno Contrato No. <u>{{ correlativo }}</u><br>
+            Aprobado y registrado según Resolución DIACO: <u>{{ config.texto_resolucion_diaco|default:"DDC-________-20__" }}</u>
+        </div>
+
+        <div class="parrafo">
+            En el municipio de Chiquimula del departamento de Chiquimula, el día <strong>{{ fecha_dia }}</strong> del mes de <strong>{{ fecha_mes }}</strong> del año <strong>{{ fecha_anio_texto }}</strong>.
+            <strong>NOSOTROS:</strong>
+            {% if config and config.datos_representante_legal %}
+                {{ config.datos_representante_legal|safe }}
+            {% else %}
+                Rony Ramírez Arellanos de sesenta y un años de edad, casado, guatemalteco, Pastor Evangélico, con domicilio en el departamento de Zacapa, me identifico con Documento Personal de Identificación, Código Único de Identificación número -CUI- 1988 64345 1904, extendido por el Registro Nacional de las Personas de la República de Guatemala, actúo en mi calidad de Presidente y Representante Legal de la <strong>IGLESIA EVANGÉLICA NACIONAL AMIGOS DE GUATEMALA</strong>, lo cual lo acredito con el acta notarial de nombramiento con fecha 19 de enero del año 2025 autorizada en el municipio de Chiquimula, departamento de Chiquimula, por el notario Edwin José Marroquín Marroquín, inscrito en el Registro de las Personas Jurídicas del Ministerio de Gobernación bajo la partida número 256, folio (s) 256 del libro 125 de nombramientos; entidad propietaria del centro educativo denominado <strong>COLEGIO EVANGÉLICO MIXTO “AMIGOS”</strong>, ubicado en la 10ma. avenida 5-38, zona 1, de este municipio, bajo la partida 1, folio (s) 162 al 172 del libro 2 de Personas Jurídicas.
+            {% endif %}
+            Y por la otra parte:
+        </div>
+
+        <div class="parrafo">
+            <strong>{{ responsable.nombres }} {{ responsable.apellidos }}</strong>,
+            {% if responsable.edad %}de <strong>{{ responsable.edad }} años</strong> de edad, {% endif %}
+            estado civil <strong>{{ responsable.estado_civil|default:"________________" }}</strong>,
+            <strong>{{ responsable.nacionalidad|default:"GUATEMALTECO(A)" }}</strong>,
+            <strong>{{ responsable.profesion|default:"________________" }}</strong>,
+            de este domicilio, me identifico con: {{ frase_documento }} <strong>{{ responsable.dpi }}</strong>
+            con residencia en: <strong>{{ responsable.direccion }}</strong>,
+            con número de teléfono en casa <strong>{{ responsable.telefono_fijo|default:"---" }}</strong>
+            y celular <strong>{{ responsable.celular }}</strong>, declarando que la información personal proporcionada, es de carácter confidencial. Los comparecientes aseguramos ser de los datos de identificación anotados, estar en el libre ejercicio de nuestros derechos civiles y la calidad que se ejercita es amplia y suficiente para la celebración del <strong>CONTRATO DE ADHESIÓN POR PRESTACIÓN DE SERVICIOS EDUCATIVOS</strong>, de conformidad con las siguientes cláusulas:
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">PRIMERA: INFORMACIÓN DEL EDUCANDO Y SERVICIO EDUCATIVO CONTRATADO.</span><br>
+            <strong>{{ estudiante.nombres }} {{ estudiante.apellidos }}</strong> quien cursará el grado de
+            <strong>{{ grado.grado }}{% if grado.orientacion %} ({{ grado.orientacion }}){% endif %}</strong>,
+            nivel <strong>{{ grado.nivel_educativo }}</strong>, <strong>Jornada {{ grado.jornada }}.</strong><br>
+            Servicios educativos debidamente autorizados por el Ministerio de Educación, de conformidad con las resoluciones emitidas:
+            {{ config.resoluciones_dideduc_servicios|default:"a) No. 882-2019/ Dideduc-Chiq, de fecha 25 de noviembre de 2019; b) No. 422-2020 Dideduc-Chiq de fecha 12 de octubre de 2020; c) No. 423-2020 Dideduc-Chiq de fecha 12 de octubre de 2020; d) No. 424-2020/Dideduc-Chiq, de fecha 12 de octubre de 2020; e) No. 813-2021 Dideduc-Chiq de fecha 18 de octubre de 2021" }},
+            por la Dirección Departamental de Educación de Chiquimula, misma(s) que se pone(n) a la vista.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">SEGUNDA: VOLUNTARIEDAD EN LA CONTRATACIÓN DEL SERVICIO.</span>
+            Manifiesta el Representante del Educando que, conociendo la amplia oferta de instituciones privadas que prestan servicios educativos, de manera voluntaria y espontánea ha elegido al Centro Educativo para la educación académica del educando.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">TERCERA: PLAZO.</span>
+            El servicio educativo convenido en este contrato será válido para el ciclo escolar del año <strong>{{ config.anio_ciclo_letras|default:"dos mil veintisiete" }}</strong>, durante su vigencia no puede ser modificada ninguna de sus cláusulas, las que deberán cumplirse a cabalidad. El Representante del Educando y el Centro Educativo podrán suscribir un nuevo contrato para el ciclo escolar inmediato siguiente, en caso acuerden la continuidad del educando.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">CUARTA: DERECHOS DEL EDUCANDO Y SU REPRESENTANTE.</span>
+            El Educando y su Representante como usuarios del servicio educativo contratado, tendrán derecho a:
+            <ol type="a" class="lista-clausula">
+                <li><strong>La protección a la vida, salud y seguridad en la adquisición, consumo y uso de bienes y servicios:</strong> Las instalaciones del Centro Educativo están dotadas de los servicios básicos, condiciones higiénicas y adecuadas para que los educandos no corran riesgos que pongan en peligro su integridad física, siempre y cuando hagan uso correcto de las mismas. El Centro Educativo debe promover la formación de hábitos alimenticios saludables para la nutrición y salud de los educandos.</li>
+                <li><strong>La libertad de Elección y Contratación:</strong> El Representante del Educando goza del derecho a elegir y contratar el Centro Educativo que se adecúe a sus necesidades y capacidades económicas. Los servicios adicionales (bus, venta de útiles y uniformes escolares) pueden ser provistos por el centro educativo privado o por alguna empresa particular. Estos servicios adicionales no educativos deberán estar regulados por las entidades gubernamentales encargadas para el efecto. El Centro Educativo privado no podrá obligar a los Representantes de los Educandos a contratar estos servicios con determinada empresa, habiendo otras que presten el servicio de igual naturaleza y calidad, a un menor precio; en ese sentido se debe observar las regulaciones emitidas por el Ministerio de Educación y lo que establece la Ley de Protección al Consumidor y Usuario. No pueden considerarse servicios adicionales, aquellos materiales e insumos requeridos para el mantenimiento y funcionamiento del Centro Educativo, así como los utilizados en mejoras escolares. De conformidad con lo que establece el artículo 6 del Acuerdo Gubernativo No. 36-2015.</li>
+                <li><strong>La información veraz, suficiente, clara y oportuna sobre los bienes y servicios:</strong> El Centro Educativo privado proporcionará al Representante del Educando la información completa sobre los bienes y servicios contratados, especialmente horarios de clases, grados y carreras autorizadas por el Ministerio de Educación, sistemas de evaluación, cursos adicionales, el monto de las cuotas tanto de inscripción como cuota mensual, así como de las actividades extraescolares de carácter voluntario u optativas que se puedan realizar durante el ciclo escolar respectivo. Las autoridades del Centro Educativo tienen la obligación de cumplir con las leyes y Acuerdos Ministeriales aplicables a estas actividades.</li>
+                <li><strong>Utilizar el Libro de Quejas o el medio legalmente autorizado por la Dirección de Atención y Asistencia al Consumidor para dejar registro de su disconformidad con respecto a un bien adquirido o servicio contratado:</strong> El Representante del Educando podrá hacer constar su inconformidad respecto al bien adquirido o el servicio contratado en el libro de quejas y esperar un período de ocho días para que la misma sea resuelta por las autoridades del Centro Educativo, transcurrido ese tiempo sin que exista una solución satisfactoria podrá interponer la queja correspondiente ante la Dirección de Atención y Asistencia al Consumidor -DIACO-, quien procederá según corresponda.</li>
+                <li><strong>Observancia a las leyes y reglamentos en materia educativa:</strong> El Centro Educativo deberá velar por el cumplimiento de las normas aplicables en materia educativa, respetando los valores culturales y derechos inherentes del Educando en su calidad de ser humano, a su vez proporcionar conocimientos científicos, técnicos y humanísticos a través de una metodología adecuada, así como evaluar con objetividad y justicia.</li>
+            </ol>
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">QUINTA: OBLIGACIONES DEL REPRESENTANTE DEL EDUCANDO.</span>
+            El Representante del Educando, en armonía con el Artículo 5 de la Ley de Protección al Consumidor y Usuario, tendrá las siguientes obligaciones:
+            <ol type="a" class="lista-clausula">
+                <li>Pagar al Centro Educativo por los servicios proporcionados en el tiempo, modo y condiciones establecidas mediante el presente contrato.</li>
+                <li>Utilizar los bienes y servicios en observancia a su uso normal, de conformidad con las especificaciones proporcionadas por el Centro Educativo y cumplir con las condiciones pactadas en el presente contrato, debiendo para tal efecto instruir al educando sobre el cuidado tanto de las instalaciones, como del mobiliario y equipo del Centro Educativo. En caso de daños y/o perjuicios ocasionados por el educando, el Representante del Educando será el responsable, siempre y cuando sean debidamente comprobados y atribuidos al mismo.</li>
+                <li>Ser orientadores en el proceso educativo de los educandos y velar porque cumplan con las obligaciones establecidas en las leyes y reglamentos internos del Centro Educativo.</li>
+            </ol>
+        </div>
+
+        <!-- CLÁUSULA SEXTA CON EL FORMATO EXACTO DE 2 COLUMNAS Y TABLAS POR JORNADA -->
+        <div class="parrafo">
+            <span class="clausula-titulo">SEXTA: CUOTAS.</span>
+            Como Representante del Educando me comprometo a efectuar únicamente los siguientes pagos, sin necesidad de cobro, ni requerimiento alguno:
+
+            <!-- Tabla 1: Formato original de 2 columnas -->
+            <table class="tabla-cuotas-dos-col">
+                <thead>
+                    <tr>
+                        <th style="width: 55%;">EN CONCEPTO DE:</th>
+                        <th style="width: 45%;">LA CANTIDAD DE:</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>a) INSCRIPCIÓN POR EDUCANDO:</strong><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;(UN SÓLO PAGO ANUAL)
+                        </td>
+                        <td style="text-align: center; vertical-align: middle; font-weight: bold; font-size: 11pt;">
+                            Q. {{ grado.cuota_inscripcion }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>b) COLEGIATURA MENSUAL:</strong><br>
+                            &nbsp;&nbsp;&nbsp;&nbsp;(10 CUOTAS EN LOS MESES DE ENERO A OCTUBRE)
+                        </td>
+                        <td style="text-align: center; vertical-align: middle; font-weight: bold; font-size: 11pt;">
+                            Q. {{ grado.cuota_mensual }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            Cuotas debidamente autorizadas por el Ministerio de Educación, según resolución {{ config.resoluciones_dideduc_cuotas|default:"No. 576-2025 DIDEDUC-CHIQ de fecha 30 de julio del año 2025, No. 489-2022 DIDEDUC-CHIQ de fecha 03 de junio de 2022" }}, emitida por la Dirección Departamental de Chiquimula, valores que se informan a continuación:
+
+            {% if cuotas_matutina %}
+            <div class="titulo-jornada-tabla">Jornada Matutina</div>
+            <table class="tabla-mineduc">
+                <thead>
+                    <tr>
+                        <th style="width: 56%;">NIVEL DE EDUCACIÓN</th>
+                        <th style="width: 22%;">INSCRIPCIÓN</th>
+                        <th style="width: 22%;">COLEGIATURA MENSUAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cuotas_matutina %}
+                    <tr>
+                        <td style="text-align: center;">{{ item.nivel_educacion }}</td>
+                        <td style="text-align: center;">Q. {{ item.inscripcion }}</td>
+                        <td style="text-align: center;">Q. {{ item.colegiatura_mensual }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            {% if cuotas_vespertina %}
+            <div class="titulo-jornada-tabla">Jornada Vespertina</div>
+            <table class="tabla-mineduc">
+                <thead>
+                    <tr>
+                        <th style="width: 56%;">NIVEL DE EDUCACIÓN</th>
+                        <th style="width: 22%;">INSCRIPCIÓN</th>
+                        <th style="width: 22%;">COLEGIATURA MENSUAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cuotas_vespertina %}
+                    <tr>
+                        <td style="text-align: center;">{{ item.nivel_educacion }}</td>
+                        <td style="text-align: center;">Q.{{ item.inscripcion }}</td>
+                        <td style="text-align: center;">Q.{{ item.colegiatura_mensual }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+            Para el pago de las cuotas, ambas partes acordamos que sea en forma anticipada, debiendo efectuar el pago durante cinco días hábiles del mes al cual corresponde el servicio educativo brindado.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">SÉPTIMA: INCUMPLIMIENTO DEL PAGO.</span>
+            En caso que el Representante del Educando se atrase o incumpla con los pagos normados en la cláusula anterior, el Centro Educativo podrá exigir al Representante del Educando el cumplimiento de las obligaciones contraídas en el presente contrato. Deberá pagar una mora de Q. {{ config.monto_mora|default:"10.00" }} por mes vencido.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">OCTAVA: DERECHOS Y OBLIGACIONES DEL CENTRO EDUCATIVO.</span>
+            De conformidad con la legislación aplicable y lo establecido en el presente contrato, tendrá los derechos siguientes: a) Exigir al Representante del Educando el cumplimiento de los contratos válidamente celebrados; b) El libre acceso a los órganos administrativos y judiciales para la solución de conflictos que surjan por la prestación del servicio educativo; c) Los demás que establecen las leyes del país. El Centro Educativo deberá cumplir con lo siguiente: a) Atender los reclamos formulados por el Representante del Educando; b) Generar mecanismos para la información continua con el Representante del Educando, así como crear espacios que promuevan el aprendizaje de los educandos; c) Asegurar un ambiente escolar que favorezca la autoestima, resolución pacífica de problemas, el reconocimiento de la dignidad humana, el respeto y la valorización de las identidades étnicas y culturales, la equidad de género, la formación de valores y los derechos humanos; d) Cumplir con las leyes tributarias del país en lo aplicable; e) Las demás que establecen las leyes del país.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">NOVENA: CHEQUES RECHAZADOS.</span>
+            Por concepto de cheques rechazados el Centro Educativo podrá cobrar como máximo el valor que por tal motivo debita o cobra el Banco que rechazó el pago del mismo.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">DÉCIMA: TRASLADO O RETIRO DEL EDUCANDO.</span>
+            De conformidad con lo establecido por el artículo 38 del Acuerdo Gubernativo número 52-2015 o cualquier otra disposición legal aplicable, el traslado o retiro del educando podrá realizarse en cualquier momento del ciclo escolar a otro Centro Educativo ya sea privado o público, siempre y cuando se cumpla con las regulaciones que para el efecto emita la autoridad competente. El Representante del Educando debe cancelar la cuota mensual hasta el mes en que efectivamente sea retirado el educando del plantel educativo, sin que esto sea motivo o justificación para retener el expediente. El establecimiento que recibe al estudiante queda obligado a informar sobre el traslado a la Unidad de Planificación de la Dirección Departamental de Educación, manteniendo el mismo código personal del estudiante y dentro de los quince días siguientes de efectuado.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">DÉCIMA PRIMERA: COPIA DEL CONTRATO.</span>
+            El Centro Educativo deberá entregar una copia del presente contrato, quedando el original en poder de la autoridad del mismo, con el propósito que cada uno de los comparecientes estén enterados de sus derechos y obligaciones para que los ejerciten y cumplan de conformidad con lo establecido. La copia será entregada al Representante del Educando al momento de firmar el contrato. Ambas partes acuerdan que la legalización de las firmas del presente contrato, correrán por cuenta del Centro Educativo.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">DÉCIMA SEGUNDA: DERECHO DE RETRACTO.</span>
+            El Representante del Educando tendrá derecho a retractarse dentro de un plazo no mayor de cinco días hábiles, contados a partir de la firma del contrato. Si ejercita oportunamente este derecho le serán restituidos en su totalidad los valores pagados, siempre que no hubiere hecho uso del servicio.
+        </div>
+
+        <div class="parrafo">
+            <span class="clausula-titulo">DÉCIMA TERCERA: ACEPTACIÓN.</span>
+            Nosotros los comparecientes, damos lectura íntegra al presente contrato, enterados de su contenido, objeto, validez y demás efectos legales, lo ratificamos, aceptamos y firmamos.
+        </div>
+
+        <!-- BLOQUE DE FIRMAS DEL CONTRATO CON FIRMA PNG EN BASE64 -->
+        <table class="bloque-firmas">
+            <tr>
+                <td style="width: 45%; vertical-align: bottom;">
+                    <div class="contenedor-firma-rep">
+                        {% if firma_base64 %}
+                            <img src="{{ firma_base64 }}" class="img-firma-rep" alt="">
+                        {% endif %}
+                    </div>
+                    <div style="border-top: 1px solid #000; padding-top: 4px;">
+                        f) Representante Legal o Propietario<br>
+                        <strong>COLEGIO EVANGÉLICO MIXTO AMIGOS</strong>
+                    </div>
+                </td>
+                <td style="width: 10%;"></td>
+                <td style="width: 45%; vertical-align: bottom;">
+                    <div class="contenedor-firma-rep"></div>
+                    <div style="border-top: 1px solid #000; padding-top: 4px;">
+                        f) Representante del Educando<br>
+                        <strong>{{ responsable.nombres }} {{ responsable.apellidos }}</strong><br>
+                        DPI: {{ responsable.dpi }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- =================================================================== -->
+        <!-- DOCUMENTO 2: FICHA INFORMATIVA (NUEVA PÁGINA OFICIO - SIN TICKET)   -->
+        <!-- =================================================================== -->
+        <div class="salto-pagina"></div>
+
+        <table class="ficha-header">
+            <tr>
+                <td style="width: 22%;">
+                    <div class="cuadro-foto">
+                        <br><br>Fotografía<br>Reciente
+                    </div>
+                </td>
+                <td style="width: 56%; text-align: center; vertical-align: middle;">
+                    <img src="{{ url_base }}{% static 'portal_staff/img/logo_colegio.png' %}" style="height: 60px; width: auto;" onerror="this.style.display='none'"><br>
+                    <strong style="font-size: 13pt;">COLEGIO EVANGÉLICO MIXTO “AMIGOS”</strong><br>
+                    <strong style="font-size: 11.5pt;">Ficha Informativa {{ sigla_jornada_ficha }} — Ciclo Escolar {{ config.anio_ciclo|default:"2027" }}</strong><br>
+                    <em style="font-size: 9pt;">La siguiente información es de carácter obligatorio, revisar información antes de firmar para verificar veracidad.</em>
+                </td>
+                <td style="width: 22%; text-align: right; vertical-align: top; font-size: 10pt;">
+                    <strong>Correlativo:</strong><br>
+                    <span style="font-size: 11pt; font-weight: bold;">{{ correlativo }}</span>
+                </td>
+            </tr>
+        </table>
+
+        <div class="ficha-seccion">1. Datos Generales y Médicos del Estudiante</div>
+        <table class="tabla-ficha">
+            <tr>
+                <td style="width: 50%;"><strong>Apellidos:</strong> {{ estudiante.apellidos }}</td>
+                <td style="width: 50%;"><strong>Nombres:</strong> {{ estudiante.nombres }}</td>
+            </tr>
+            <tr>
+                <td><strong>CUI Estudiante:</strong> {{ estudiante.cui }}</td>
+                <td><strong>Grado a Cursar:</strong> {{ grado.grado }} {{ grado.orientacion|default:"" }} ({{ grado.jornada }})</td>
+            </tr>
+            <tr>
+                <td><strong>Fecha de nacimiento:</strong> {{ estudiante.fecha_nacimiento|date:"d/m/Y" }}</td>
+                <td><strong>Edad:</strong> {{ estudiante.edad }} años | <strong>Género:</strong> {{ estudiante.genero|default:"---" }}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><strong>Dirección de residencia:</strong> {{ responsable.direccion }}</td>
+            </tr>
+            <tr>
+                <td><strong>Teléfono del estudiante:</strong> {{ estudiante.telefono|default:"No indicó" }}</td>
+                <td><strong>Tipo de sangre:</strong> {{ estudiante.tipo_sangre|default:"No lo sabe" }}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><strong>Enfermedades o alergias que padece:</strong> {{ estudiante.enfermedades_padece|default:"NINGUNA REPORTADA" }}</td>
+            </tr>
+            <tr>
+                <td><strong>¿Impedimento físico?:</strong> {% if estudiante.impedimento_fisico %}SÍ{% else %}NO{% endif %}</td>
+                <td><strong>Detalle impedimento:</strong> {{ estudiante.detalle_impedimento|default:"NINGUNO" }}</td>
+            </tr>
+            <tr>
+                <td><strong>¿Con quién vive?:</strong> {{ estudiante.vive_con }}{% if estudiante.vive_con_otro %} ({{ estudiante.vive_con_otro }}){% endif %}</td>
+                <td><strong>¿De quién depende económicamente?:</strong> {{ estudiante.depende_de }}{% if estudiante.depende_de_otro %} ({{ estudiante.depende_de_otro }}){% endif %}</td>
+            </tr>
+        </table>
+
+        <div class="ficha-seccion">2. En Caso de Emergencia a Quién Avisar</div>
+        <table class="tabla-mineduc" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th style="width: 28%;">PARENTESCO / RELACIÓN</th>
+                    <th style="width: 47%;">NOMBRE COMPLETO</th>
+                    <th style="width: 25%;">TELÉFONO CELULAR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in todos_los_vinculos %}
+                <tr>
+                    <td><strong>{{ v.parentesco|upper }}</strong> {% if v.es_contacto_principal %}(Firmante){% endif %}</td>
+                    <td>{{ v.responsable.nombres }} {{ v.responsable.apellidos }}</td>
+                    <td style="text-align: center;">{{ v.responsable.celular }}</td>
+                </tr>
+                {% endfor %}
+                {% for ce in contactos_emergencia %}
+                <tr>
+                    <td><strong>{{ ce.parentesco }}</strong> (Emergencia)</td>
+                    <td>{{ ce.nombre_completo }}</td>
+                    <td style="text-align: center;">{{ ce.celular }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="ficha-seccion">3. Datos Generales del Padre/Madre y/o Representante Legal</div>
+        <table class="tabla-ficha">
+            <tr>
+                <td style="width: 60%;"><strong>Nombre Completo:</strong> {{ responsable.nombres }} {{ responsable.apellidos }}</td>
+                <td style="width: 40%;"><strong>{{ responsable.tipo_documento|default:"DPI" }}:</strong> {{ responsable.dpi }}</td>
+            </tr>
+            <tr>
+                <td><strong>Parentesco:</strong> {{ vinculo_principal.parentesco }}</td>
+                <td><strong>Estado Civil:</strong> {{ responsable.estado_civil }}</td>
+            </tr>
+            <tr>
+                <td><strong>No. Celular:</strong> {{ responsable.celular }} {% if responsable.tiene_whatsapp %}(Con WhatsApp){% endif %}</td>
+                <td><strong>No. Tel. Casa:</strong> {{ responsable.telefono_fijo|default:"---" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Profesión u Oficio:</strong> {{ responsable.profesion }}</td>
+                <td><strong>Correo Electrónico:</strong> {{ responsable.correo_electronico|default:"---" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Religión:</strong> {{ responsable.religion|default:"---" }}</td>
+                <td><strong>Iglesia a la que asiste:</strong> {{ responsable.iglesia|default:"---" }}</td>
+            </tr>
+        </table>
+
+        <div class="ficha-seccion">4. Procedencia Académica (Primer Ingreso)</div>
+        <table class="tabla-ficha">
+            <tr>
+                <td style="width: 65%;"><strong>Establecimiento donde estudió el año anterior:</strong> {{ inscripcion.colegio_anterior|default:"ESTUDIANTE DE REINGRESO (COLEGIO AMIGOS)" }}</td>
+                <td style="width: 35%;"><strong>Promedio anterior:</strong> {{ inscripcion.promedio|default:"---" }}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><strong>Razón de retiro:</strong> {{ inscripcion.razon_retiro|default:"---" }}</td>
+            </tr>
+        </table>
+
+        <div class="nota-legal">
+            <strong>Nota:</strong> El Colegio Evangélico Mixto AMIGOS de la ciudad de Chiquimula, Guatemala, hace del conocimiento claro del estudiante y padre de familia/representante legal lo siguiente:<br>
+            <em>1. Los <strong>permisos</strong> deben ser firmados únicamente por las personas especificadas en la presente ficha (padre, madre o encargado).</em><br>
+            <em>2. Que, en caso de incurrir en <strong>falsificación de datos</strong>, será motivo suficiente para la <strong>devolución</strong> de su expediente y la finalización de toda relación con este centro educativo.</em>
+        </div>
+
+        <div style="text-align: center; margin-top: 55px; page-break-inside: avoid;">
+            <div style="width: 320px; margin: 0 auto; border-top: 1px solid #000; padding-top: 5px;">
+                <strong>Firma: {{ responsable.nombres }} {{ responsable.apellidos }}</strong><br>
+                <strong>{{ responsable.tipo_documento|default:"DPI" }}: {{ responsable.dpi }}</strong>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

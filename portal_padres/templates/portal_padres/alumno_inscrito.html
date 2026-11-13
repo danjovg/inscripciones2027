@@ -1,0 +1,73 @@
+{% extends "portal_padres/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-4 mb-5">
+    <div class="col-md-9 col-lg-7">
+        
+        <div class="card shadow border-0 rounded-4 overflow-hidden">
+            <!-- Encabezado de Bloqueo -->
+            <div class="bg-secondary text-white p-4 text-center">
+                <i class="bi bi-lock-fill mb-2 d-block" style="font-size: 3rem;"></i>
+                <h3 class="fw-bold mb-0">Expediente Cerrado</h3>
+            </div>
+            
+            <div class="card-body p-4 p-md-5">
+                
+                <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-check-circle-fill fs-3 me-3"></i>
+                    <div>
+                        <h5 class="alert-heading mb-1">¡Inscripción Oficial Confirmada!</h5>
+                        <p class="mb-0">El proceso de este estudiante ha sido completado y validado por la administración del colegio.</p>
+                    </div>
+                </div>
+
+                <!-- Resumen de Datos (Solo Lectura) -->
+                <div class="bg-light p-4 rounded-3 border mb-4">
+                    <h5 class="text-primary border-bottom pb-2 mb-3">Información del Estudiante</h5>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block small">Nombres y Apellidos:</span>
+                            <strong class="text-dark">{{ estudiante.nombres }} {{ estudiante.apellidos }}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block small">CUI:</span>
+                            <strong class="text-dark">{{ estudiante.cui }}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block small">Grado Asignado:</span>
+                            <strong class="text-dark">{{ inscripcion.grado_a_cursar|default:"Grado asignado" }}</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block small">Código de Ticket:</span>
+                            <strong class="text-primary">{{ inscripcion.ticket_generado }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explicación de Políticas -->
+                <div class="alert alert-warning border-warning bg-opacity-10 mb-4">
+                    <h6 class="fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Protección de Datos</h6>
+                    <p class="mb-0 small text-dark">
+                        Por medidas de seguridad y políticas de nuestro establecimiento, <strong>ya no es posible realizar modificaciones en línea</strong> a este expediente, debido a que el contrato físico ya ha sido generado y firmado.
+                    </p>
+                    <hr class="border-warning opacity-50">
+                    <p class="mb-0 small text-dark">
+                        Si necesita actualizar un número de teléfono, cambiar un contacto de emergencia o corregir algún dato médico, por favor <strong>acérquese a la secretaría del colegio</strong> para actualizar su expediente en el sistema. Recuerde traer identificación oficial y documentación que respalde cualquier cambio solicitado.
+                    </p>
+                </div>
+
+                <!-- Botones de Salida -->
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{% url 'ingreso_cui' %}" class="btn btn-outline-secondary px-4">
+                        <i class="bi bi-house-door me-1"></i> Volver al Inicio
+                    </a>
+                    <a href="{% url 'ingreso_cui' %}" class="btn btn-primary px-4">
+                        <i class="bi bi-person-plus me-1"></i> Inscribir a otro Estudiante
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,29 +12,39 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Carga las variables del archivo .env si existe
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+# ==========================================
+# VARIABLES DE ENTORNO (DINÁMICAS)
+# ==========================================
+# Lee del .env, si no existe, usa la clave local insegura
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-4lf@oo6mj_1a#cn&*c&+ow))+g+-*huzukn_l1ph5tktlfhp30')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-4lf@oo6mj_1a#cn&*c&+ow))+g+-*huzukn_l1ph5tktlfhp30'
+# Lee del .env, si dice 'False' es producción. Si no existe, es 'True' (local)
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = [
-    'inscripciones.danjo.com.gt',
-    'docentes.danjo.com.gt',
-    'gestion.danjo.com.gt',
-]
-
+# Lee los dominios permitidos del .env. En local permite los dominios locales de prueba.
+ALLOWED_HOSTS_ENV = os.environ.get('ALLOWED_HOSTS')
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS = ALLOWED_HOSTS_ENV.split(',')
+else:
+    # Estos son tus hosts locales de Windows por defecto
+    ALLOWED_HOSTS = [
+        'inscripciones.danjo.com.gt',
+        'docentes.danjo.com.gt',
+        'gestion.danjo.com.gt',
+        'localhost',
+        '127.0.0.1'
+    ]
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -101,24 +111,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
+# ==========================================
+# BASE DE DATOS (DINÁMICA)
+# ==========================================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'c_amigos_db',
-        'USER': 'postgres',
-        'PASSWORD': 'admin123',
-        'HOST': 'localhost',
-        'PORT': '5433',
+        # Busca en el .env, si no encuentra nada usa los datos locales de Windows
+        'NAME': os.environ.get('DB_NAME', 'c_amigos_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'admin123'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5433'),
     }
 }
 
 
 # Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -134,22 +143,15 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/6.1/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.1/howto/static-files/
-
 STATIC_URL = 'static/'
 
 # Carpeta global fuera de las apps para centralizar la separación
@@ -157,12 +159,15 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static_global')
 ]
 
+# Carpeta de recolección para NGINX en producción
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
