@@ -253,7 +253,7 @@
                                 <a href="{% url 'editar_expediente' insc.id %}" class="btn btn-outline-primary fw-bold" title="Abrir expediente completo">
                                     <i class="bi bi-box-arrow-up-right"></i> Expediente
                                 </a>
-                                {% if insc.grado_a_cursar %}
+                                {% if insc.estado_solicitud == 'INSCRITO' and insc.grado_a_cursar %}
                                 <a href="{% url 'descargar_contrato_pdf' insc.id %}" class="btn btn-outline-success fw-bold" title="Ver Contrato">
                                     <i class="bi bi-file-earmark-text"></i> Contrato
                                 </a>

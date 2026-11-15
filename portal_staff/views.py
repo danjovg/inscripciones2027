@@ -943,12 +943,20 @@ def panel_direccion(request):
 @user_passes_test(es_digitador_o_superior, login_url='/accounts/login/')
 def descargar_contrato_pdf(request, inscripcion_id):
     """
-    Genera el Contrato de Adhesión DIACO 2027 (12 cláusulas + todas las cuotas)
-    y la Ficha Informativa en tamaño Oficio.
+    Genera el Contrato de Adhesión DIACO 2027 y la Ficha Informativa en tamaño Oficio.
+    CANDADO ESTRICTO: Bloqueado para alumnos en BORRADOR o PREINSCRITO para no alterar correlativos.
     """
     inscripcion = get_object_or_404(Inscripcion, id=inscripcion_id)
     estudiante = inscripcion.estudiante
     grado = inscripcion.grado_a_cursar
+
+    # 1. CANDADO DE SEGURIDAD: Prohibir abrir o generar el contrato si aún no está INSCRITO
+    if inscripcion.estado_solicitud != 'INSCRITO':
+        messages.warning(
+            request,
+            f'🔒 El Contrato y la Ficha Informativa de {estudiante.nombres} {estudiante.apellidos} están bloqueados hasta que confirme y oficialice la inscripción.'
+        )
+        return redirect('editar_expediente', inscripcion_id=inscripcion.id)
 
     todos_los_vinculos = EstudianteResponsable.objects.filter(
         estudiante=estudiante
@@ -964,14 +972,14 @@ def descargar_contrato_pdf(request, inscripcion_id):
     contactos_emergencia = ContactoEmergencia.objects.filter(estudiante=estudiante)
     config = ConfiguracionAnual.objects.filter(anio_ciclo=grado.ciclo.anio_ciclo).first() or ConfiguracionAnual.objects.last()
 
-    # 1. Asegurar correlativo oficial con formato CA-002-JV-2027 (o JM según jornada)
+    # Solo asigna correlativo si el alumno YA ESTÁ INSCRITO y por alguna razón no lo tenía
     if not inscripcion.correlativo_contrato and config:
         inscripcion.correlativo_contrato = construir_correlativo_oficial(config, grado)
         config.correlativo_actual += 1
         config.save()
         inscripcion.save(update_fields=['correlativo_contrato'])
 
-    correlativo = inscripcion.correlativo_contrato or f"CA-{inscripcion.id:03d}-JV-2027"
+    correlativo = inscripcion.correlativo_contrato
 
     # 2. Poblar o actualizar las 5 filas oficiales del Contrato 2027 exclusivamente en CuotaMineducContrato
     if config:

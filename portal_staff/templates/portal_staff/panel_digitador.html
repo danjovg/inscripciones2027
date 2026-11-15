@@ -30,12 +30,12 @@
     {% endfor %}
 {% endif %}
 
-<!-- Buscador por Ticket, CUI o Nombre -->
+<!-- Buscador por Ticket, Correlativo, CUI o Nombre -->
 <div class="card shadow-sm mb-4 border-0">
     <div class="card-body">
         <form method="GET" class="d-flex">
             <input type="hidden" name="estado" value="{{ filtro_estado }}">
-            <input class="form-control form-control-lg me-2" type="search" name="q" value="{{ query }}" placeholder="Buscar alumno por código de Ticket, CUI, Nombres o Apellidos..." autofocus>
+            <input class="form-control form-control-lg me-2" type="search" name="q" value="{{ query }}" placeholder="Buscar alumno por código de Ticket, Correlativo, CUI, Nombres o Apellidos..." autofocus>
             <button class="btn btn-primary btn-lg px-4" type="submit"><i class="bi bi-search me-1"></i> Buscar</button>
             {% if query %}
                 <a href="{% url 'panel_digitador' %}?estado={{ filtro_estado }}" class="btn btn-outline-secondary btn-lg ms-2">Limpiar</a>
@@ -60,7 +60,7 @@
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>Ticket</th>
+                        <th>Ticket / Correlativo</th>
                         <th>CUI</th>
                         <th>Estudiante</th>
                         <th>Grado a Cursar</th>
@@ -72,7 +72,11 @@
                     {% for inscripcion in inscripciones %}
                     <tr>
                         <td>
-                            <span class="badge bg-dark fs-6 font-monospace">{{ inscripcion.ticket_generado|default:"SIN TICKET" }}</span>
+                            {% if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.correlativo_contrato %}
+                                <span class="badge bg-success fs-6 font-monospace">{{ inscripcion.correlativo_contrato }}</span>
+                            {% else %}
+                                <span class="badge bg-dark fs-6 font-monospace">{{ inscripcion.ticket_generado|default:"SIN TICKET" }}</span>
+                            {% endif %}
                         </td>
                         <td class="fw-semibold font-monospace">{{ inscripcion.estudiante.cui }}</td>
                         <td class="fw-bold text-dark">{{ inscripcion.estudiante.nombres }} {{ inscripcion.estudiante.apellidos }}</td>
@@ -88,10 +92,12 @@
                         </td>
                         <td class="text-end">
                             <div class="d-flex justify-content-end gap-2">
-                                <a href="{% url 'editar_expediente' inscripcion.id %}" class="btn btn-sm btn-outline-primary fw-bold">
-                                    <i class="bi bi-pencil-square me-1"></i> Editar
+                                <a href="{% url 'editar_expediente' inscripcion.id %}" class="btn btn-sm btn-primary fw-bold">
+                                    <i class="bi bi-pencil-square me-1"></i> Auditar / Inscribir
                                 </a>
-                                {% if inscripcion.grado_a_cursar %}
+
+                                <!-- CANDADO: Solo muestra botones de Contrato y PDF si YA ESTÁ INSCRITO OFICIALMENTE -->
+                                {% if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.grado_a_cursar %}
                                 <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}" class="btn btn-sm btn-success fw-bold" title="Abrir Vista de Impresión y Contrato">
                                     <i class="bi bi-printer-fill me-1"></i> Ver / Imprimir Contrato
                                 </a>
