@@ -1101,28 +1101,27 @@ def descargar_contrato_pdf(request, inscripcion_id):
 
 
 # =========================================================================
-# VISTA EXCLUSIVA DEL SUPERVISOR (PRODUCTIVIDAD Y AUDITORÍA DE DIGITADORES)
+# VISTA EXCLUSIVA DEL SUPERVISOR (PRODUCTIVIDAD DE DIGITADORES Y SECRETARÍA)
 # =========================================================================
 @login_required(login_url='/accounts/login/')
 @user_passes_test(es_superusuario_exclusivo, login_url='/accounts/login/')
 def panel_supervisor(request):
     """
     Dashboard Privado del Supervisor:
-    - Ranking de productividad de Digitadores (Total de contratos, Contratos de Hoy, Ediciones).
-    - Ranking de tickets emitidos por Auxiliares en puerta.
-    - Bitácora detallada de cada contrato con filtro por Digitador y por Fecha.
+    Muestra exclusivamente a usuarios de los grupos 'Digitadores' y 'Secretaría General'
+    (Excluye al Superusuario/Supervisor y a los Auxiliares).
     """
     hoy = timezone.localdate()
     digitador_id = request.GET.get('digitador', '').strip()
     fecha_filtro = request.GET.get('fecha', '').strip()
     query = request.GET.get('q', '').strip()
 
+    # Filtrar únicamente Digitadores y Secretaría General, excluyendo Superusuarios
     usuarios_staff = User.objects.filter(
-        Q(is_superuser=True) |
+        is_superuser=False
+    ).filter(
         Q(groups__name__icontains='digitador') |
-        Q(groups__name__icontains='secretar') |
-        Q(groups__name__icontains='auxiliar') |
-        Q(contratos_oficializados__isnull=False)
+        Q(groups__name__icontains='secretar')
     ).distinct()
 
     total_contratos_global = Inscripcion.objects.filter(estado_solicitud='INSCRITO').count()
@@ -1147,7 +1146,6 @@ def panel_supervisor(request):
             fecha_oficializacion__date=hoy
         ).count()
         total_editados = Inscripcion.objects.filter(ultima_edicion_por=u).count()
-        tickets_puerta = Inscripcion.objects.filter(creado_por_auxiliar=u).count()
 
         ultimo_contrato = Inscripcion.objects.filter(
             estado_solicitud='INSCRITO',
@@ -1157,7 +1155,10 @@ def panel_supervisor(request):
         porcentaje_aporte = round((total_oficializados / total_contratos_global) * 100, 1) if total_contratos_global > 0 else 0
 
         nombre_completo = f"{u.first_name} {u.last_name}".strip() or u.username
-        roles_str = ", ".join([g.name for g in u.groups.all()]) or ("Supervisor" if u.is_superuser else "Staff")
+        roles_str = ", ".join([
+            g.name for g in u.groups.all()
+            if 'digitador' in g.name.lower() or 'secretar' in g.name.lower()
+        ])
 
         ranking_digitadores.append({
             'usuario': u,
@@ -1167,7 +1168,6 @@ def panel_supervisor(request):
             'total_oficializados': total_oficializados,
             'oficializados_hoy': oficializados_hoy,
             'total_editados': total_editados,
-            'tickets_puerta': tickets_puerta,
             'porcentaje_aporte': porcentaje_aporte,
             'ultimo_contrato': ultimo_contrato,
         })
@@ -1175,7 +1175,7 @@ def panel_supervisor(request):
     ranking_digitadores.sort(key=lambda x: (x['total_oficializados'], x['total_editados']), reverse=True)
 
     bitacora_qs = Inscripcion.objects.select_related(
-        'estudiante', 'grado_a_cursar', 'inscrito_por', 'ultima_edicion_por', 'creado_por_auxiliar'
+        'estudiante', 'grado_a_cursar', 'inscrito_por', 'ultima_edicion_por'
     ).order_by('-fecha_oficializacion', '-fecha_ultima_edicion', '-id')
 
     if digitador_id:

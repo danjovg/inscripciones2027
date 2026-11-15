@@ -82,37 +82,56 @@
         .lista-clausula li {
             margin-bottom: 2px;
         }
-        /* Tabla 1: Cuotas de todos los grados en 2 columnas como el Contrato 2027 */
+        /* Tabla 1: Cuotas de todos los grados blindada contra cortes de página */
         table.tabla-cuotas-todos {
             width: 100%;
             border-collapse: collapse;
-            margin: 5px 0 8px 0;
-            font-size: 9.2pt;
+            margin: 6px 0 8px 0;
+            font-size: 9pt;
+            line-height: 1.2;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        table.tabla-cuotas-todos tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         table.tabla-cuotas-todos th, table.tabla-cuotas-todos td {
-            border: 1px solid #000;
+            border: 1px solid #002060;
             padding: 3px 8px;
+            vertical-align: middle;
         }
         table.tabla-cuotas-todos th {
             text-align: center;
             font-weight: bold;
-            background-color: #f8f9fa;
         }
-        /* Tabla 2: Cuotas Autorizadas MINEDUC */
+        .subtexto-cuota {
+            display: block;
+            padding-left: 14px;
+            font-weight: bold;
+        }
+        /* Tabla 2: Cuotas Autorizadas MINEDUC blindada contra cortes de página */
         table.tabla-mineduc {
             width: 100%;
-            margin: 5px 0 8px 0;
+            margin: 6px 0 8px 0;
             border-collapse: collapse;
-            font-size: 9.2pt;
+            font-size: 9pt;
+            line-height: 1.2;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        table.tabla-mineduc tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         table.tabla-mineduc th, table.tabla-mineduc td {
             border: 1px solid #000;
             padding: 3px 8px;
+            vertical-align: middle;
         }
         table.tabla-mineduc th {
             text-align: center;
             font-weight: bold;
-            background-color: #f8f9fa;
         }
         .bloque-firmas {
             margin-top: 65px; /* Espacio limpio para que la mitad superior de la firma suba hasta el texto */
@@ -303,12 +322,12 @@
             <span class="clausula-titulo">SEXTA: CUOTAS.</span>
             Como Representante del Educando me comprometo a efectuar únicamente los siguientes pagos, sin necesidad de cobro, ni requerimiento alguno:
 
-            <!-- Tabla 1: Imprime todos los niveles/carreras desde CarreraCuota en formato de 2 columnas -->
+        <!-- Tabla 1: Imprime todos los niveles/carreras desde CuotaMineducContrato -->
             <table class="tabla-cuotas-todos">
                 <thead>
                     <tr>
-                        <th style="width: 78%;">EN CONCEPTO DE:</th>
-                        <th style="width: 22%;">LA CANTIDAD DE:</th>
+                        <th style="width: 72%;">EN CONCEPTO DE:</th>
+                        <th style="width: 28%;">LA CANTIDAD DE:</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -316,29 +335,16 @@
                     <tr>
                         <td>
                             <strong>a) INSCRIPCIÓN POR EDUCANDO {{ c.etiqueta }}:</strong>
-                            <span style="float: right; font-weight: bold;">(UN SÓLO PAGO ANUAL)</span>
+                            <span class="subtexto-cuota">(UN SÓLO PAGO ANUAL)</span>
                         </td>
                         <td style="text-align: center; font-weight: bold;">Q.{{ c.inscripcion }}</td>
                     </tr>
                     <tr>
                         <td>
                             <strong>b) COLEGIATURA MENSUAL {{ c.etiqueta }}:</strong>
-                            <span style="float: right; font-weight: bold;">(10 CUOTAS EN LOS MESES DE ENERO A OCTUBRE)</span>
+                            <span class="subtexto-cuota">(10 CUOTAS EN LOS MESES DE ENERO A OCTUBRE)</span>
                         </td>
                         <td style="text-align: center; font-weight: bold;">Q.{{ c.mensualidad }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td>
-                            <strong>a) INSCRIPCIÓN POR EDUCANDO {{ grado.nivel_educativo|upper }}:</strong> (UN SÓLO PAGO ANUAL)
-                        </td>
-                        <td style="text-align: center; font-weight: bold;">Q.{{ grado.cuota_inscripcion }}</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <strong>b) COLEGIATURA MENSUAL {{ grado.nivel_educativo|upper }}:</strong> (10 CUOTAS EN LOS MESES DE ENERO A OCTUBRE)
-                        </td>
-                        <td style="text-align: center; font-weight: bold;">Q.{{ grado.cuota_mensual }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
