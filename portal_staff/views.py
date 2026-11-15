@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -254,6 +254,35 @@ class ContactoEmergenciaForm(forms.ModelForm):
             }),
         }
 
+
+@login_required(login_url='/accounts/login/')
+@user_passes_test(es_digitador_o_superior, login_url='/accounts/login/')
+def buscar_dpi_staff_ajax(request, dpi):
+    """
+    Busca si el DPI o Pasaporte del responsable ya existe en la BD (ej. por otro hermano)
+    y devuelve todos sus datos para autocompletar el formulario en la Sección B.
+    """
+    dpi_limpio = dpi.strip()
+    responsable = Responsable.objects.filter(dpi=dpi_limpio).first()
+    if responsable:
+        return JsonResponse({
+            'existe': True,
+            'tipo_documento': getattr(responsable, 'tipo_documento', 'DPI'),
+            'nombres': responsable.nombres or '',
+            'apellidos': responsable.apellidos or '',
+            'edad': responsable.edad or '',
+            'estado_civil': responsable.estado_civil or 'Casado(a)',
+            'direccion': responsable.direccion or '',
+            'celular': responsable.celular or '',
+            'tiene_whatsapp': getattr(responsable, 'tiene_whatsapp', True),
+            'telefono_fijo': responsable.telefono_fijo or '',
+            'profesion': responsable.profesion or '',
+            'nacionalidad': responsable.nacionalidad or 'Guatemalteca',
+            'religion': responsable.religion or '',
+            'iglesia': responsable.iglesia or '',
+            'correo_electronico': responsable.correo_electronico or '',
+        })
+    return JsonResponse({'existe': False})
 
 # =========================================================================
 # VISTAS DEL ROL: DIGITADOR

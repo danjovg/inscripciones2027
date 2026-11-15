@@ -585,6 +585,83 @@ document.addEventListener('DOMContentLoaded', function() {
     if (checkNuevoIngreso) {
         checkNuevoIngreso.addEventListener('change', evaluarGradoDigitador);
     }
+
+    // 5. AUTOCOMPLETADO AUTOMÁTICO DE RESPONSABLE POR DPI EN SECCIÓN B
+    const inputDpiStaff = document.querySelector('#form-edicion-responsable #id_dpi');
+    if (inputDpiStaff) {
+        // Crear contenedor para el aviso visual estilizado arriba del campo DPI
+        const alertaDpi = document.createElement('div');
+        alertaDpi.className = 'alert alert-success py-2 px-3 small fw-semibold mt-2 mb-0 d-none shadow-sm';
+        inputDpiStaff.parentNode.appendChild(alertaDpi);
+
+        let ultimoDpiConsultado = inputDpiStaff.value.trim();
+
+        function consultarDpiEnBD(dpiValor) {
+            const dpi = dpiValor.trim();
+            if (dpi.length < 8 || dpi === ultimoDpiConsultado) return;
+            ultimoDpiConsultado = dpi;
+
+            fetch(`/api/buscar-dpi/${encodeURIComponent(dpi)}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.existe) {
+                        const formResp = document.getElementById('form-edicion-responsable');
+                        const setVal = (selector, val) => {
+                            const el = formResp.querySelector(selector);
+                            if (el) el.value = val;
+                        };
+
+                        setVal('#id_tipo_documento', data.tipo_documento);
+                        setVal('#id_nombres', data.nombres);
+                        setVal('#id_apellidos', data.apellidos);
+                        setVal('#id_edad', data.edad);
+                        setVal('#id_estado_civil', data.estado_civil);
+                        setVal('#id_direccion', data.direccion);
+                        setVal('#id_profesion', data.profesion);
+                        setVal('#id_nacionalidad', data.nacionalidad);
+                        setVal('#id_religion', data.religion);
+                        setVal('#id_iglesia', data.iglesia);
+                        setVal('#id_correo_electronico', data.correo_electronico);
+
+                        // Actualizar teléfonos respetando la librería de banderitas (intl-tel-input)
+                        const inputCel = formResp.querySelector('#id_celular');
+                        const inputFijo = formResp.querySelector('#id_telefono_fijo');
+                        itiInstances.forEach(function(inst) {
+                            if (inst.input === inputCel && data.celular) {
+                                inst.iti.setNumber(data.celular);
+                            }
+                            if (inst.input === inputFijo && data.telefono_fijo) {
+                                inst.iti.setNumber(data.telefono_fijo);
+                            }
+                        });
+
+                        const checkWa = formResp.querySelector('#id_tiene_whatsapp');
+                        if (checkWa) checkWa.checked = Boolean(data.tiene_whatsapp);
+
+                        alertaDpi.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Responsable encontrado en la base de datos (<strong>${data.nombres} ${data.apellidos}</strong>). Datos cargados automáticamente.`;
+                        alertaDpi.classList.remove('d-none');
+                    } else {
+                        alertaDpi.classList.add('d-none');
+                    }
+                })
+                .catch(err => console.error('Error al consultar DPI:', err));
+        }
+
+        // Dispara automáticamente al completar los 13 dígitos de un DPI o al salir del campo (para Pasaportes)
+        inputDpiStaff.addEventListener('input', function() {
+            const limpio = this.value.trim();
+            if (limpio.length === 13) {
+                consultarDpiEnBD(limpio);
+            } else {
+                alertaDpi.classList.add('d-none');
+            }
+        });
+
+        inputDpiStaff.addEventListener('blur', function() {
+            consultarDpiEnBD(this.value);
+        });
+    }
+
 });
 </script>
 {% endblock %}

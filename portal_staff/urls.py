@@ -18,6 +18,7 @@ urlpatterns = [
     path('digitador/', views.panel_digitador, name='panel_digitador'),
     path('digitador/editar/<int:inscripcion_id>/', views.editar_expediente_digitador, name='editar_expediente'),
     path('digitador/contrato-pdf/<int:inscripcion_id>/', views.descargar_contrato_pdf, name='descargar_contrato_pdf'),
+    path('api/buscar-dpi/<str:dpi>/', views.buscar_dpi_staff_ajax, name='buscar_dpi_staff'),
 
     # --- ROL: SECRETARÍA GENERAL ---
     path('secretaria/', views.panel_secretaria, name='panel_secretaria'),
