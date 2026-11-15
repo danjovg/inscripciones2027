@@ -14,11 +14,18 @@ urlpatterns = [
     path('', views.dashboard_auxiliar, name='dashboard'),
     path('generar-ticket/', views.generar_ticket_rapido, name='generar_ticket_rapido'),
     
-# --- ROL: DIGITADOR ---
+    # --- ROL: DIGITADOR ---
     path('digitador/', views.panel_digitador, name='panel_digitador'),
     path('digitador/editar/<int:inscripcion_id>/', views.editar_expediente_digitador, name='editar_expediente'),
     path('digitador/contrato-pdf/<int:inscripcion_id>/', views.descargar_contrato_pdf, name='descargar_contrato_pdf'),
 
+    # --- ROL: SECRETARÍA GENERAL ---
+    path('secretaria/', views.panel_secretaria, name='panel_secretaria'),
+    path('secretaria/exportar-excel/', views.exportar_matricula_csv, name='exportar_matricula_csv'),
+
     # --- ROL: DIRECCIÓN ---
     path('direccion/', views.panel_direccion, name='panel_direccion'),
+
+    # --- EXCLUSIVO SUPERVISOR (SUPERUSER) ---
+    path('supervisor/', views.panel_supervisor, name='panel_supervisor'),
 ]

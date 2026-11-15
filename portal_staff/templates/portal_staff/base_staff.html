@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión Interna | Colegio Amigos</title>
+    <!-- Favicon en la pestaña del navegador -->
+    <link rel="icon" type="image/png" href="{% static 'portal_staff/img/logo_colegio.png' %}">
+    <link rel="shortcut icon" type="image/png" href="{% static 'portal_staff/img/logo_colegio.png' %}">
     <!-- Bootstrap 5 CSS e Íconos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -30,17 +33,21 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarStaff">
-                {% with grupos=user.groups.all|join:"," %}
+                <!-- Convertimos a minúsculas para que funcione con o sin tilde / mayúsculas -->
+                {% with grupos=user.groups.all|join:","|lower %}
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
-                    {% if user.is_superuser or "Auxiliares" in grupos or "Digitadores" in grupos or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    
+                    <!-- 1. Opción Auxiliar: Solo si tiene el grupo Auxiliares (o es Superuser) -->
+                    {% if user.is_superuser or "auxiliar" in grupos %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active fw-bold text-white{% endif %}" href="{% url 'dashboard' %}">
-                            <i class="bi bi-door-open me-1"></i>Auxiliar (Puerta)
+                            <i class="bi bi-door-open me-1"></i>Auxiliar
                         </a>
                     </li>
                     {% endif %}
 
-                    {% if user.is_superuser or "Digitadores" in grupos or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    <!-- 2. Opción Digitador: Solo si tiene el grupo Digitadores o Secretaría (o es Superuser) -->
+                    {% if user.is_superuser or "digitador" in grupos or "secretar" in grupos %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'digitador' in request.path %}active fw-bold text-white{% endif %}" href="{% url 'panel_digitador' %}">
                             <i class="bi bi-pc-display-horizontal me-1"></i>Digitador
@@ -48,28 +55,40 @@
                     </li>
                     {% endif %}
 
-                    {% if user.is_superuser or "Secretaría General" in grupos or "Dirección" in grupos %}
+                    <!-- 3. Opción Secretaría General: Solo si tiene el grupo Secretaría (o es Superuser) -->
+                    {% if user.is_superuser or "secretar" in grupos %}
                     <li class="nav-item">
-                        <a class="nav-link {% if 'secretaria' in request.path %}active fw-bold text-white{% endif %}" href="#">
-                            <i class="bi bi-folder-check me-1"></i>Secretaría General
+                        <a class="nav-link {% if 'secretaria' in request.path %}active fw-bold text-white{% endif %}" href="{% url 'panel_secretaria' %}">
+                            <i class="bi bi-folder-check me-1"></i>Secretaría
                         </a>
                     </li>
                     {% endif %}
 
-                    {% if user.is_superuser or "Dirección" in grupos %}
+                    <!-- 4. Opción Dirección: Solo si tiene el grupo Dirección / Direccion (o es Superuser) -->
+                    {% if user.is_superuser or "direcci" in grupos %}
                     <li class="nav-item">
                         <a class="nav-link {% if 'direccion' in request.path %}active fw-bold text-white{% endif %}" href="{% url 'panel_direccion' %}">
                             <i class="bi bi-bar-chart-line me-1"></i>Dirección
                         </a>
                     </li>
                     {% endif %}
+
+                    <!-- 5. Opción Exclusiva para el Supervisor (is_superuser) -->
+                    {% if user.is_superuser %}
+                    <li class="nav-item ms-lg-2">
+                        <a class="nav-link {% if 'supervisor' in request.path %}active fw-bold text-warning{% else %}text-warning{% endif %}" href="{% url 'panel_supervisor' %}">
+                            <i class="bi bi-shield-lock-fill me-1"></i>Supervisor
+                        </a>
+                    </li>
+                    {% endif %}
+
                 </ul>
                 {% endwith %}
 
                 <div class="d-flex align-items-center ms-auto mt-2 mt-lg-0">
                     <div class="text-white-50 me-3 small d-none d-sm-flex align-items-center">
                         <i class="bi bi-person-circle me-1 text-success fs-6"></i>
-                        <span class="text-white fw-semibold me-2">{{ user.username }}</span>
+                        <span class="text-white fw-semibold me-2">{{ user.get_full_name|default:user.username }}</span>
                         {% for group in user.groups.all %}
                             <span class="badge bg-secondary bg-opacity-50 text-light border border-secondary ms-1">{{ group.name }}</span>
                         {% empty %}
@@ -96,7 +115,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- JS para intl-tel-input (Banderas) -->
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.2.16/build/js/intlTelInput.min.js"></script>
     {% block extra_js %}{% endblock %}
 </body>

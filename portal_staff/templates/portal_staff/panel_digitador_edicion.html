@@ -18,15 +18,53 @@
                     <span>|</span>
                     <span><i class="bi bi-mortarboard-fill me-1 text-primary"></i>Grado a Cursar: <strong class="text-dark">{{ inscripcion.grado_a_cursar|default:"Pendiente de asignar" }}</strong></span>
                     <span>|</span>
-                    <span><i class="bi bi-ticket-perforated me-1 text-primary"></i>Ticket: <strong class="text-primary fs-6">{{ inscripcion.ticket_generado|default:"N/A" }}</strong></span>
+                    {% if inscripcion.correlativo_contrato %}
+                        <span><i class="bi bi-file-earmark-check-fill me-1 text-success"></i>Correlativo: <strong class="text-success font-monospace fs-6">{{ inscripcion.correlativo_contrato }}</strong></span>
+                    {% else %}
+                        <span><i class="bi bi-ticket-perforated me-1 text-primary"></i>Ticket: <strong class="text-primary fs-6">{{ inscripcion.ticket_generado|default:"N/A" }}</strong></span>
+                    {% endif %}
                     <span>|</span>
-                    <span>Estado: <span class="badge bg-warning text-dark">{{ inscripcion.estado_solicitud }}</span></span>
+                    <span>
+                        Estado:
+                        {% if inscripcion.estado_solicitud == 'INSCRITO' %}
+                            <span class="badge bg-success">INSCRITO OFICIAL</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">{{ inscripcion.estado_solicitud }}</span>
+                        {% endif %}
+                    </span>
                 </div>
             </div>
             <a href="{% url 'panel_digitador' %}" class="btn btn-outline-secondary mt-3 mt-lg-0 fw-semibold">
                 <i class="bi bi-arrow-left me-1"></i> Volver a Bandeja
             </a>
         </div>
+
+        <!-- BARRA DE AUDITORÍA PRIVADA (SOLO VISIBLE PARA TI COMO SUPERVISOR) -->
+        {% if user.is_superuser %}
+        <div class="alert alert-dark border-start border-4 border-warning py-2 px-3 mb-3 d-flex flex-wrap justify-content-between align-items-center small shadow-sm">
+            <div>
+                <i class="bi bi-shield-lock-fill text-warning me-1"></i>
+                <strong class="text-uppercase me-2">Auditoría Privada (Solo visible para Supervisor):</strong>
+                <span class="me-3">
+                    Oficializado por:
+                    <strong class="text-warning">
+                        {% if inscripcion.inscrito_por %}
+                            {{ inscripcion.inscrito_por.get_full_name|default:inscripcion.inscrito_por.username }} ({{ inscripcion.fecha_oficializacion|date:"d/m/Y H:i" }})
+                        {% else %}
+                            Pendiente de oficializar
+                        {% endif %}
+                    </strong>
+                </span>
+                <span class="me-3">|</span>
+                <span>
+                    Última edición:
+                    <strong>{{ inscripcion.ultima_edicion_por.username|default:"Sin registro" }}</strong>
+                    {% if inscripcion.fecha_ultima_edicion %}({{ inscripcion.fecha_ultima_edicion|date:"d/m/Y H:i" }}){% endif %}
+                </span>
+            </div>
+            <a href="{% url 'panel_supervisor' %}" class="badge bg-warning text-dark text-decoration-none">Ver Panel de Productividad →</a>
+        </div>
+        {% endif %}
 
         <!-- GUÍA RÁPIDA DE AUDITORÍA PARA EL DIGITADOR -->
         <div class="alert alert-info border-0 shadow-sm mb-4">
@@ -365,7 +403,6 @@
                         </a>
                     {% endif %}
 
-                    <!-- Botón que abre el Modal estilizado de Bootstrap en lugar del alert nativo del navegador -->
                     <button type="button" class="btn btn-success btn-lg px-4 fw-bold shadow" data-bs-toggle="modal" data-bs-target="#modalOficializarInscripcion">
                         <i class="bi bi-check-circle-fill me-2"></i>
                         {% if inscripcion.estado_solicitud == 'INSCRITO' %}
@@ -378,7 +415,7 @@
             </div>
         </div>
 
-        <!-- MODAL DE CONFIRMACIÓN ESTILIZADO (ACORDE AL DISEÑO DEL SISTEMA) -->
+        <!-- MODAL DE CONFIRMACIÓN ESTILIZADO -->
         <div class="modal fade" id="modalOficializarInscripcion" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg">
@@ -434,9 +471,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // =========================================================================
     // 1. INICIALIZAR BANDERITAS (intl-tel-input) EN TODOS LOS TELÉFONOS
-    // =========================================================================
     const phoneInputs = document.querySelectorAll('.telefono-internacional');
     const itiInstances = [];
 
@@ -450,7 +485,6 @@ document.addEventListener('DOMContentLoaded', function() {
         itiInstances.push({ input: input, iti: iti });
     });
 
-    // Al enviar cualquier formulario, inyectar el número completo con código de área (ej. +50212345678)
     document.querySelectorAll('form').forEach(function(form) {
         form.addEventListener('submit', function() {
             itiInstances.forEach(function(instance) {
@@ -464,9 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // =========================================================================
     // 2. CAMPOS CONDICIONALES: "VIVE CON OTRO" Y "DEPENDE DE OTRO"
-    // =========================================================================
     function setupOtroField(selectId, otroInputId) {
         const selectEl = document.getElementById(selectId);
         const otroInput = document.getElementById(otroInputId);
@@ -487,9 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupOtroField('id_vive_con', 'id_vive_con_otro');
     setupOtroField('id_depende_de', 'id_depende_de_otro');
 
-    // =========================================================================
     // 3. CAMPOS CONDICIONALES: ENFERMEDADES E IMPEDIMENTO FÍSICO
-    // =========================================================================
     function setupCheckboxField(checkId, textInputId) {
         const checkEl = document.getElementById(checkId);
         const textInput = document.getElementById(textInputId);
@@ -510,9 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupCheckboxField('id_tiene_enfermedad', 'id_enfermedades_padece');
     setupCheckboxField('id_impedimento_fisico', 'id_detalle_impedimento');
 
-    // =========================================================================
     // 4. LÓGICA DINÁMICA DE GRADO A CURSAR (OBLIGATORIO / MANUAL / OCULTO)
-    // =========================================================================
     const configGrados = {{ config_grados_json|safe }};
     const selectGrado = document.getElementById('id_grado_a_cursar');
     const checkNuevoIngreso = document.getElementById('id_es_nuevo_ingreso');
@@ -534,16 +562,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (modo === 'OBLIGATORIO') {
-            // Ej. Primero Básico: Siempre pide colegio anterior sin preguntar
             divCheckNuevo.style.display = 'none';
             if (checkNuevoIngreso) checkNuevoIngreso.checked = true;
             divDatosColegio.style.display = 'block';
         } else if (modo === 'MANUAL') {
-            // Ej. Segundo Básico: Muestra el checkbox para que el digitador marque solo si es primer ingreso
             divCheckNuevo.style.display = 'block';
             divDatosColegio.style.display = (checkNuevoIngreso && checkNuevoIngreso.checked) ? 'block' : 'none';
         } else {
-            // OCULTO: Nunca pide colegio anterior y deja todo como opcional/limpio
             divCheckNuevo.style.display = 'none';
             if (checkNuevoIngreso) checkNuevoIngreso.checked = false;
             divDatosColegio.style.display = 'none';

@@ -1,18 +1,22 @@
 import base64
+import csv
 import json
 import os
 import random
 import string
+import unicodedata
 from datetime import date
 
 from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 from academico.models import CarreraCuota
 from core.models import ConfiguracionAnual, CuotaMineducContrato
@@ -27,25 +31,61 @@ from portal_padres.forms import EstudianteForm, ResponsableForm
 
 
 # =========================================================================
-# VALIDADORES DE PERMISOS POR ROL
+# VALIDADORES DE PERMISOS POR ROL (INSENSIBLES A TILDES Y MAYÚSCULAS)
 # =========================================================================
+def _normalizar_texto(texto):
+    """Elimina tildes y pasa a minúsculas para que 'Dirección' y 'Direccion' coincidan siempre."""
+    if not texto:
+        return ''
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', texto.lower().strip())
+        if unicodedata.category(c) != 'Mn'
+    )
+
+
+def usuario_tiene_rol(user, palabras_clave):
+    """Verifica si el usuario pertenece a alguno de los grupos indicados (con o sin tilde)."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    grupos_usuario = [_normalizar_texto(g.name) for g in user.groups.all()]
+    for clave in palabras_clave:
+        clave_norm = _normalizar_texto(clave)
+        for grupo in grupos_usuario:
+            if clave_norm in grupo:
+                return True
+    return False
+
+
 def es_personal_administrativo(user):
-    """Permite acceso a Auxiliares, Digitadores, Secretaría, Dirección o Superusuario."""
-    return user.is_superuser or user.groups.filter(
-        name__in=['Auxiliares', 'Digitadores', 'Secretaría General', 'Dirección']
-    ).exists()
+    """Permite entrar al portal a cualquier usuario con al menos uno de los 4 roles administrativos."""
+    return usuario_tiene_rol(user, ['auxiliar', 'digitador', 'secretaria', 'direccion'])
+
+
+def es_auxiliar_o_autorizado(user):
+    """Valida si tiene asignado el grupo Auxiliares."""
+    return usuario_tiene_rol(user, ['auxiliar'])
 
 
 def es_digitador_o_superior(user):
-    """Bloquea a los Auxiliares para que no entren al módulo de Digitadores."""
-    return user.is_superuser or user.groups.filter(
-        name__in=['Digitadores', 'Secretaría General', 'Dirección']
-    ).exists()
+    """Valida si tiene asignado el grupo Digitadores, Secretaría o Dirección."""
+    return usuario_tiene_rol(user, ['digitador', 'secretaria', 'direccion'])
+
+
+def es_secretaria_o_superior(user):
+    """Valida si tiene asignado el grupo Secretaría General o Dirección."""
+    return usuario_tiene_rol(user, ['secretaria', 'direccion'])
 
 
 def es_direccion(user):
-    """Solo usuarios del grupo Dirección o Superusuarios entran al Dashboard Ejecutivo."""
-    return user.is_superuser or user.groups.filter(name='Dirección').exists()
+    """Valida si tiene asignado el grupo Dirección (con o sin tilde)."""
+    return usuario_tiene_rol(user, ['direccion'])
+
+
+def es_superusuario_exclusivo(user):
+    """Bloquea a todos los roles excepto al Supervisor (Superusuario)."""
+    return user.is_authenticated and user.is_superuser
 
 
 # =========================================================================
@@ -73,18 +113,32 @@ def construir_correlativo_oficial(config, grado):
     elif 'VESPERTINA' in jornada_txt or jornada_txt == 'JV':
         sigla_jornada = 'JV'
     else:
-        sigla_jornada = 'JM'
+        sigla_jornada = 'JV'
 
     return f"{prefijo}{numero}-{sigla_jornada}-{anio}"
 
 
 # =========================================================================
-# VISTAS DEL ROL: AUXILIAR (PUERTA)
+# VISTAS DEL ROL: AUXILIAR (PUERTA Y ENRUTAMIENTO POR ROL)
 # =========================================================================
 @login_required(login_url='/accounts/login/')
 @user_passes_test(es_personal_administrativo, login_url='/accounts/login/')
 def dashboard_auxiliar(request):
-    """Buscador rápido en puerta por CUI, Nombres o Apellidos."""
+    """
+    Vista raíz (/):
+    - Si el usuario NO tiene el rol de Auxiliar, lo redirige automáticamente a su módulo
+      correspondiente (Secretaría, Dirección o Digitador).
+    - Si es Auxiliar (o Superuser), muestra el buscador de Puerta.
+    """
+    if not es_auxiliar_o_autorizado(request.user):
+        if es_secretaria_o_superior(request.user) and not es_direccion(request.user):
+            return redirect('panel_secretaria')
+        if es_direccion(request.user):
+            return redirect('panel_direccion')
+        if es_digitador_o_superior(request.user):
+            return redirect('panel_digitador')
+        return redirect('/accounts/login/')
+
     query = request.GET.get('q', '').strip()
     resultados = []
 
@@ -103,9 +157,9 @@ def dashboard_auxiliar(request):
 
 
 @login_required(login_url='/accounts/login/')
-@user_passes_test(es_personal_administrativo, login_url='/accounts/login/')
+@user_passes_test(es_auxiliar_o_autorizado, login_url='/accounts/login/')
 def generar_ticket_rapido(request):
-    """Crea un expediente rápido en BORRADOR para padres que llegan sin preinscripción."""
+    """Crea un expediente rápido en BORRADOR y registra qué Auxiliar lo emitió."""
     if request.method == 'POST':
         cui = request.POST.get('cui', '').strip()
         nombres = request.POST.get('nombres', '').strip().upper()
@@ -126,12 +180,15 @@ def generar_ticket_rapido(request):
             defaults={
                 'estado_solicitud': 'BORRADOR',
                 'ticket_generado': generar_codigo_ticket(),
+                'creado_por_auxiliar': request.user,
             }
         )
 
         if not inscripcion.ticket_generado:
             inscripcion.ticket_generado = generar_codigo_ticket()
-            inscripcion.save()
+        if not inscripcion.creado_por_auxiliar:
+            inscripcion.creado_por_auxiliar = request.user
+        inscripcion.save()
 
         return redirect(f"/?q={cui}")
 
@@ -160,7 +217,10 @@ class InscripcionDigitadorForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado_a_cursar'].queryset = CarreraCuota.objects.all()
+        # Mostrar únicamente grados de Jornada Vespertina
+        self.fields['grado_a_cursar'].queryset = CarreraCuota.objects.filter(
+            jornada__icontains='Vespertina'
+        ).order_by('orden', 'nivel_educativo', 'grado')
         self.fields['colegio_anterior'].required = False
         self.fields['promedio'].required = False
         self.fields['razon_retiro'].required = False
@@ -247,7 +307,11 @@ def panel_digitador(request):
 @login_required(login_url='/accounts/login/')
 @user_passes_test(es_digitador_o_superior, login_url='/accounts/login/')
 def editar_expediente_digitador(request, inscripcion_id):
-    """Vista de auditoría completa: Sección A (Alumno), Sección B (Responsables) y Sección C (Emergencias)."""
+    """
+    Vista de auditoría completa:
+    Sección A (Alumno y Grado), Sección B (Responsables/Firmante) y Sección C (Emergencias).
+    Registra automáticamente qué usuario editó y quién oficializó el contrato.
+    """
     inscripcion = get_object_or_404(Inscripcion, id=inscripcion_id)
     estudiante = inscripcion.estudiante
 
@@ -313,6 +377,9 @@ def editar_expediente_digitador(request, inscripcion_id):
                         'es_contacto_principal': marcar_principal,
                     }
                 )
+                inscripcion.ultima_edicion_por = request.user
+                inscripcion.save()
+
                 messages.success(request, f'✅ Responsable {resp_obj.nombres} {resp_obj.apellidos} guardado correctamente.')
                 return redirect(f"/digitador/editar/{inscripcion.id}/#seccion-responsables")
             else:
@@ -323,6 +390,9 @@ def editar_expediente_digitador(request, inscripcion_id):
             vinculo_id = request.POST.get('vinculo_id')
             EstudianteResponsable.objects.filter(estudiante=estudiante).update(es_contacto_principal=False)
             EstudianteResponsable.objects.filter(id=vinculo_id, estudiante=estudiante).update(es_contacto_principal=True)
+            inscripcion.ultima_edicion_por = request.user
+            inscripcion.save()
+
             nuevo_firmante = EstudianteResponsable.objects.filter(id=vinculo_id).select_related('responsable').first()
             if nuevo_firmante:
                 messages.success(
@@ -335,6 +405,8 @@ def editar_expediente_digitador(request, inscripcion_id):
         elif accion == 'desvincular_responsable':
             vinculo_id = request.POST.get('vinculo_id')
             EstudianteResponsable.objects.filter(id=vinculo_id, estudiante=estudiante).delete()
+            inscripcion.ultima_edicion_por = request.user
+            inscripcion.save()
             messages.warning(request, 'Se desvinculó al responsable de este estudiante.')
             return redirect(f"/digitador/editar/{inscripcion.id}/#seccion-responsables")
 
@@ -348,6 +420,10 @@ def editar_expediente_digitador(request, inscripcion_id):
                 emerg_obj.parentesco = emerg_obj.parentesco.strip().upper()
                 emerg_obj.celular = emerg_obj.celular.strip()
                 emerg_obj.save()
+
+                inscripcion.ultima_edicion_por = request.user
+                inscripcion.save()
+
                 messages.success(request, f'✅ Contacto de emergencia "{emerg_obj.nombre_completo}" agregado.')
                 return redirect(f"/digitador/editar/{inscripcion.id}/#seccion-emergencias")
             else:
@@ -357,6 +433,8 @@ def editar_expediente_digitador(request, inscripcion_id):
         elif accion == 'eliminar_emergencia':
             emergencia_id = request.POST.get('emergencia_id')
             ContactoEmergencia.objects.filter(id=emergencia_id, estudiante=estudiante).delete()
+            inscripcion.ultima_edicion_por = request.user
+            inscripcion.save()
             messages.warning(request, 'Contacto de emergencia eliminado.')
             return redirect(f"/digitador/editar/{inscripcion.id}/#seccion-emergencias")
 
@@ -384,6 +462,8 @@ def editar_expediente_digitador(request, inscripcion_id):
                 est_obj.save()
 
                 insc_obj = form_inscripcion.save(commit=False)
+                insc_obj.ultima_edicion_por = request.user
+
                 grado = insc_obj.grado_a_cursar
                 comportamiento_grado = getattr(grado, 'config_ingreso', 'MANUAL') if grado else 'MANUAL'
                 es_nuevo = form_inscripcion.cleaned_data.get('es_nuevo_ingreso', False)
@@ -437,7 +517,7 @@ def editar_expediente_digitador(request, inscripcion_id):
                         )
                         return redirect(f"/digitador/editar/{inscripcion.id}/?editar_resp={r.dpi}#form-edicion-responsable")
 
-                    es_dir = request.user.is_superuser or request.user.groups.filter(name='Dirección').exists()
+                    es_dir = es_direccion(request.user)
                     if hasattr(grado, 'cupos_ocupados') and hasattr(grado, 'cupo_maximo'):
                         if inscripcion.estado_solicitud != 'INSCRITO' and grado.cupos_ocupados >= grado.cupo_maximo and not es_dir:
                             messages.error(request, f'⚠️ ¡Cupo lleno en {grado}! Solicite autorización a Dirección para inscribirlo.')
@@ -447,13 +527,18 @@ def editar_expediente_digitador(request, inscripcion_id):
                             grado.cupos_ocupados += 1
                             grado.save()
 
-                    # Generar correlativo oficial (CA-002-JV-2027) si aún no lo tiene
                     if not insc_obj.correlativo_contrato:
                         config = ConfiguracionAnual.objects.filter(anio_ciclo=grado.ciclo.anio_ciclo).first() or ConfiguracionAnual.objects.last()
                         if config:
                             insc_obj.correlativo_contrato = construir_correlativo_oficial(config, grado)
                             config.correlativo_actual += 1
                             config.save()
+
+                    # Registrar trazabilidad de qué Digitador oficializó el contrato y a qué hora
+                    if not insc_obj.inscrito_por:
+                        insc_obj.inscrito_por = request.user
+                    if not insc_obj.fecha_oficializacion:
+                        insc_obj.fecha_oficializacion = timezone.now()
 
                     insc_obj.estado_solicitud = 'INSCRITO'
                     insc_obj.save()
@@ -485,6 +570,221 @@ def editar_expediente_digitador(request, inscripcion_id):
         'config_grados_json': json.dumps(config_grados),
     }
     return render(request, 'portal_staff/panel_digitador_edicion.html', context)
+
+
+# =========================================================================
+# VISTAS DEL ROL: SECRETARÍA GENERAL (POST-INSCRIPCIÓN, NÓMINAS Y ANULACIONES)
+# =========================================================================
+@login_required(login_url='/accounts/login/')
+@user_passes_test(es_secretaria_o_superior, login_url='/accounts/login/')
+def panel_secretaria(request):
+    """Centro de Control de Secretaría General."""
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        inscripcion_id = request.POST.get('inscripcion_id')
+        inscripcion = get_object_or_404(Inscripcion, id=inscripcion_id)
+        estudiante = inscripcion.estudiante
+
+        if accion == 'anular_contrato':
+            if inscripcion.estado_solicitud == 'INSCRITO':
+                grado_actual = inscripcion.grado_a_cursar
+                if grado_actual and grado_actual.cupos_ocupados > 0:
+                    grado_actual.cupos_ocupados -= 1
+                    grado_actual.save()
+
+                correlativo_anterior = inscripcion.correlativo_contrato
+                inscripcion.estado_solicitud = 'PREINSCRITO'
+                inscripcion.ultima_edicion_por = request.user
+                inscripcion.save()
+                messages.warning(
+                    request,
+                    f'⚠️ Se anuló la inscripción oficial de {estudiante.nombres} {estudiante.apellidos} (Contrato {correlativo_anterior}). Se liberó 1 cupo en {grado_actual.grado} y el expediente volvió a estado Preinscrito.'
+                )
+            return redirect('panel_secretaria')
+
+        elif accion == 'cambiar_grado':
+            nuevo_grado_id = request.POST.get('nuevo_grado_id')
+            if nuevo_grado_id:
+                nuevo_grado = get_object_or_404(CarreraCuota, id=nuevo_grado_id)
+                grado_viejo = inscripcion.grado_a_cursar
+
+                if grado_viejo != nuevo_grado:
+                    if inscripcion.estado_solicitud == 'INSCRITO':
+                        if nuevo_grado.cupos_ocupados >= nuevo_grado.cupo_maximo and not es_direccion(request.user):
+                            messages.error(
+                                request,
+                                f'⚠️ No se pudo trasladar a {nuevo_grado.grado} porque el cupo está lleno ({nuevo_grado.cupos_ocupados}/{nuevo_grado.cupo_maximo}).'
+                            )
+                            return redirect('panel_secretaria')
+
+                        if grado_viejo and grado_viejo.cupos_ocupados > 0:
+                            grado_viejo.cupos_ocupados -= 1
+                            grado_viejo.save()
+
+                        nuevo_grado.cupos_ocupados += 1
+                        nuevo_grado.save()
+
+                    inscripcion.grado_a_cursar = nuevo_grado
+                    inscripcion.ultima_edicion_por = request.user
+                    inscripcion.save()
+                    messages.success(
+                        request,
+                        f'✅ {estudiante.nombres} {estudiante.apellidos} fue trasladado exitosamente a {nuevo_grado.grado} {nuevo_grado.orientacion or ""}.'
+                    )
+            return redirect('panel_secretaria')
+
+        elif accion == 'eliminar_expediente':
+            if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.grado_a_cursar:
+                grado_actual = inscripcion.grado_a_cursar
+                if grado_actual.cupos_ocupados > 0:
+                    grado_actual.cupos_ocupados -= 1
+                    grado_actual.save()
+            nombre_borrado = f"{estudiante.nombres} {estudiante.apellidos} (CUI: {estudiante.cui})"
+            inscripcion.delete()
+            messages.error(request, f'🗑️ Se eliminó el registro de inscripción de {nombre_borrado}.')
+            return redirect('panel_secretaria')
+
+    query = request.GET.get('q', '').strip()
+    grado_filtro = request.GET.get('grado', '').strip()
+    estado_filtro = request.GET.get('estado', 'INSCRITO').strip()
+
+    inscripciones_qs = Inscripcion.objects.select_related('estudiante', 'grado_a_cursar').order_by('-id')
+
+    if estado_filtro and estado_filtro != 'TODOS':
+        inscripciones_qs = inscripciones_qs.filter(estado_solicitud=estado_filtro)
+
+    if grado_filtro:
+        inscripciones_qs = inscripciones_qs.filter(grado_a_cursar_id=grado_filtro)
+
+    if query:
+        inscripciones_qs = inscripciones_qs.filter(
+            Q(correlativo_contrato__icontains=query) |
+            Q(ticket_generado__icontains=query) |
+            Q(estudiante__cui__icontains=query) |
+            Q(estudiante__nombres__icontains=query) |
+            Q(estudiante__apellidos__icontains=query)
+        )
+
+    listado_expedientes = []
+    for insc in inscripciones_qs:
+        vinculo_prin = EstudianteResponsable.objects.filter(
+            estudiante=insc.estudiante
+        ).select_related('responsable').order_by('-es_contacto_principal', 'id').first()
+        listado_expedientes.append({
+            'inscripcion': insc,
+            'estudiante': insc.estudiante,
+            'vinculo': vinculo_prin,
+            'responsable': vinculo_prin.responsable if vinculo_prin else None,
+        })
+
+    grados_disponibles = CarreraCuota.objects.filter(
+        jornada__icontains='Vespertina'
+    ).order_by('orden', 'nivel_educativo', 'grado')
+
+    total_inscritos = Inscripcion.objects.filter(estado_solicitud='INSCRITO').count()
+    total_preinscritos = Inscripcion.objects.filter(estado_solicitud='PREINSCRITO').count()
+    total_borradores = Inscripcion.objects.filter(estado_solicitud='BORRADOR').count()
+
+    context = {
+        'listado_expedientes': listado_expedientes,
+        'grados_disponibles': grados_disponibles,
+        'query': query,
+        'grado_filtro': grado_filtro,
+        'estado_filtro': estado_filtro,
+        'total_inscritos': total_inscritos,
+        'total_preinscritos': total_preinscritos,
+        'total_borradores': total_borradores,
+    }
+    return render(request, 'portal_staff/panel_secretaria.html', context)
+
+
+@login_required(login_url='/accounts/login/')
+@user_passes_test(es_secretaria_o_superior, login_url='/accounts/login/')
+def exportar_matricula_csv(request):
+    """Exporta a Excel (CSV con BOM UTF-8) la nómina de estudiantes."""
+    grado_filtro = request.GET.get('grado', '').strip()
+    estado_filtro = request.GET.get('estado', 'INSCRITO').strip()
+    query = request.GET.get('q', '').strip()
+
+    qs = Inscripcion.objects.select_related('estudiante', 'grado_a_cursar').order_by(
+        'grado_a_cursar__orden', 'estudiante__apellidos', 'estudiante__nombres'
+    )
+
+    if estado_filtro and estado_filtro != 'TODOS':
+        qs = qs.filter(estado_solicitud=estado_filtro)
+    if grado_filtro:
+        qs = qs.filter(grado_a_cursar_id=grado_filtro)
+    if query:
+        qs = qs.filter(
+            Q(correlativo_contrato__icontains=query) |
+            Q(estudiante__cui__icontains=query) |
+            Q(estudiante__nombres__icontains=query) |
+            Q(estudiante__apellidos__icontains=query)
+        )
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="Nomina_Colegio_Amigos_2027_{estado_filtro}.csv"'
+    response.write('\ufeff')
+
+    writer = csv.writer(response, delimiter=';')
+    writer.writerow([
+        'CORRELATIVO CONTRATO',
+        'ESTADO',
+        'CUI ESTUDIANTE',
+        'APELLIDOS ESTUDIANTE',
+        'NOMBRES ESTUDIANTE',
+        'GENERO',
+        'FECHA NACIMIENTO',
+        'EDAD',
+        'GRADO A CURSAR',
+        'CARRERA / ORIENTACION',
+        'JORNADA',
+        'TELEFONO ESTUDIANTE',
+        'TIPO SANGRE',
+        'ENFERMEDADES / ALERGIAS',
+        'FIRMANTE PRINCIPAL',
+        'PARENTESCO',
+        'DPI FIRMANTE',
+        'CELULAR FIRMANTE',
+        'DIRECCION RESIDENCIA',
+        'CONTACTOS EMERGENCIA',
+    ])
+
+    for insc in qs:
+        est = insc.estudiante
+        grado = insc.grado_a_cursar
+        vinculo = EstudianteResponsable.objects.filter(
+            estudiante=est
+        ).select_related('responsable').order_by('-es_contacto_principal', 'id').first()
+        resp = vinculo.responsable if vinculo else None
+
+        emergencias = ContactoEmergencia.objects.filter(estudiante=est)
+        emerg_str = " | ".join([f"{e.nombre_completo} ({e.parentesco}: {e.celular})" for e in emergencias])
+
+        writer.writerow([
+            insc.correlativo_contrato or 'SIN CORRELATIVO',
+            insc.estado_solicitud,
+            f"'{est.cui}",
+            est.apellidos,
+            est.nombres,
+            est.genero or '',
+            est.fecha_nacimiento.strftime('%d/%m/%Y') if est.fecha_nacimiento else '',
+            est.edad or '',
+            grado.grado if grado else 'SIN ASIGNAR',
+            grado.orientacion if (grado and grado.orientacion) else 'N/A',
+            grado.jornada if grado else '',
+            est.telefono or '',
+            est.tipo_sangre or '',
+            est.enfermedades_padece or 'NINGUNA',
+            f"{resp.nombres} {resp.apellidos}" if resp else 'SIN REGISTRAR',
+            vinculo.parentesco if vinculo else '',
+            f"'{resp.dpi}" if resp else '',
+            resp.celular if resp else '',
+            resp.direccion if resp else '',
+            emerg_str,
+        ])
+
+    return response
 
 
 # =========================================================================
@@ -608,13 +908,14 @@ def panel_direccion(request):
 
 
 # =========================================================================
-# GENERACIÓN DEL CONTRATO DIACO Y FICHA INFORMATIVA (TAMAÑO OFICIO)
+# GENERACIÓN DEL CONTRATO DIACO 2027 Y FICHA INFORMATIVA (TAMAÑO OFICIO)
 # =========================================================================
 @login_required(login_url='/accounts/login/')
 @user_passes_test(es_digitador_o_superior, login_url='/accounts/login/')
 def descargar_contrato_pdf(request, inscripcion_id):
     """
-    Genera el Contrato de Adhesión DIACO y la Ficha Informativa en tamaño Oficio.
+    Genera el Contrato de Adhesión DIACO 2027 (12 cláusulas + todas las cuotas)
+    y la Ficha Informativa en tamaño Oficio.
     """
     inscripcion = get_object_or_404(Inscripcion, id=inscripcion_id)
     estudiante = inscripcion.estudiante
@@ -643,29 +944,54 @@ def descargar_contrato_pdf(request, inscripcion_id):
 
     correlativo = inscripcion.correlativo_contrato or f"CA-{inscripcion.id:03d}-JV-2027"
 
-    # 2. Poblar valores iniciales de Cuotas MINEDUC si aún no existen en la BD para este ciclo
-    if config and not CuotaMineducContrato.objects.filter(ciclo=config).exists():
-        datos_iniciales = [
-            ('MATUTINA', 1, 'Preprimaria', '608.35', '395.43'),
-            ('MATUTINA', 2, 'Primaria', '608.35', '395.43'),
-            ('VESPERTINA', 1, 'Ciclo Básico', '661.25', '462.88'),
-            ('VESPERTINA', 2, 'Bachillerato en Ciencias y Letras con Orientación en Computación', '793.50', '634.80'),
-            ('VESPERTINA', 3, 'Perito en Administración de Empresas', '793.50', '502.55'),
+    # 2. Poblar o actualizar las 5 filas oficiales del Contrato 2027 exclusivamente en CuotaMineducContrato
+    if config:
+        datos_contrato_2027 = [
+            ('MATUTINA', 1, 'Pre-primaria', '550.00', '385.00', '608.35', '395.43'),
+            ('MATUTINA', 2, 'Primaria', '550.00', '385.00', '608.35', '395.43'),
+            ('VESPERTINA', 3, 'Básico', '630.00', '480.00', '760.44', '532.31'),
+            ('VESPERTINA', 4, 'Perito en Administración de Empresas', '700.00', '525.00', '912.52', '577.93'),
+            ('VESPERTINA', 5, 'Bachillerato en Ciencias y Letras con Orientación en Computación', '750.00', '650.00', '912.52', '730.02'),
         ]
-        for jorn, ord_num, niv, insc_val, mens_val in datos_iniciales:
-            CuotaMineducContrato.objects.create(
-                ciclo=config,
-                jornada=jorn,
-                orden=ord_num,
-                nivel_educacion=niv,
-                inscripcion=insc_val,
-                colegiatura_mensual=mens_val,
-            )
+        if not CuotaMineducContrato.objects.filter(ciclo=config).exists():
+            for jorn, ord_num, niv, insc_col, mens_col, insc_min, mens_min in datos_contrato_2027:
+                CuotaMineducContrato.objects.create(
+                    ciclo=config,
+                    jornada=jorn,
+                    orden=ord_num,
+                    nivel_educacion=niv,
+                    inscripcion_colegio=insc_col,
+                    mensualidad_colegio=mens_col,
+                    inscripcion=insc_min,
+                    colegiatura_mensual=mens_min,
+                )
+        else:
+            for jorn, ord_num, niv, insc_col, mens_col, insc_min, mens_min in datos_contrato_2027:
+                CuotaMineducContrato.objects.filter(
+                    ciclo=config, orden=ord_num, inscripcion_colegio=0
+                ).update(
+                    nivel_educacion=niv,
+                    inscripcion_colegio=insc_col,
+                    mensualidad_colegio=mens_col,
+                    inscripcion=insc_min,
+                    colegiatura_mensual=mens_min,
+                )
 
-    cuotas_matutina = CuotaMineducContrato.objects.filter(ciclo=config, jornada='MATUTINA').order_by('orden') if config else []
-    cuotas_vespertina = CuotaMineducContrato.objects.filter(ciclo=config, jornada='VESPERTINA').order_by('orden') if config else []
+    cuotas_mineduc_todas = CuotaMineducContrato.objects.filter(ciclo=config).order_by('orden', 'id') if config else []
 
-    # 3. Convertir la imagen PNG de la firma a Base64 directo desde el disco para que siempre se muestre
+    # 3. Construir la lista para la Tabla 1 de la Cláusula Sexta (Cobro Colegio de todos los niveles)
+    cuotas_colegio_todos = []
+    for item in cuotas_mineduc_todas:
+        etiqueta_upper = item.nivel_educacion.replace('-', '').strip().upper()
+        insc_c = f"{int(item.inscripcion_colegio)}" if item.inscripcion_colegio == int(item.inscripcion_colegio) else f"{item.inscripcion_colegio:.2f}"
+        mens_c = f"{int(item.mensualidad_colegio)}" if item.mensualidad_colegio == int(item.mensualidad_colegio) else f"{item.mensualidad_colegio:.2f}"
+        cuotas_colegio_todos.append({
+            'etiqueta': etiqueta_upper,
+            'inscripcion': insc_c,
+            'mensualidad': mens_c,
+        })
+
+    # 4. Convertir la imagen PNG de la firma a Base64 directo desde el disco
     firma_base64 = None
     if config and config.firma_representante_legal:
         try:
@@ -684,15 +1010,15 @@ def descargar_contrato_pdf(request, inscripcion_id):
                 encoded = base64.b64encode(img_f.read()).decode('utf-8')
                 firma_base64 = f"data:image/png;base64,{encoded}"
 
-    # 4. Fecha en español
+    # 5. Fecha en español
     meses_es = {
         1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril', 5: 'mayo', 6: 'junio',
         7: 'julio', 8: 'agosto', 9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
     }
-    anios_texto = {
-        2026: 'dos mil veintiséis',
-        2027: 'dos mil veintisiete',
-        2028: 'dos mil veintiocho',
+    anios_sufijo = {
+        2026: 'veintiséis',
+        2027: 'veintisiete',
+        2028: 'veintiocho',
     }
     hoy = date.today()
 
@@ -703,6 +1029,9 @@ def descargar_contrato_pdf(request, inscripcion_id):
 
     sigla_jornada_ficha = 'JM' if 'MATUTINA' in (grado.jornada or '').upper() else 'JV'
     forzar_pdf = request.GET.get('forzar_pdf') == '1'
+
+    mora_val = config.monto_mora if config else 20
+    mora_str = f"{int(mora_val)}" if mora_val == int(mora_val) else f"{mora_val:.2f}"
 
     context = {
         'inscripcion': inscripcion,
@@ -715,13 +1044,14 @@ def descargar_contrato_pdf(request, inscripcion_id):
         'config': config,
         'correlativo': correlativo,
         'sigla_jornada_ficha': sigla_jornada_ficha,
-        'cuotas_matutina': cuotas_matutina,
-        'cuotas_vespertina': cuotas_vespertina,
+        'cuotas_colegio_todos': cuotas_colegio_todos,
+        'cuotas_mineduc_todas': cuotas_mineduc_todas,
+        'mora_str': mora_str,
         'firma_base64': firma_base64,
         'fecha_dia': hoy.day,
         'fecha_mes': meses_es.get(hoy.month, ''),
         'fecha_anio': hoy.year,
-        'fecha_anio_texto': anios_texto.get(hoy.year, str(hoy.year)),
+        'fecha_anio_sufijo': anios_sufijo.get(hoy.year, str(hoy.year)),
         'frase_documento': frase_documento,
         'url_base': f"{request.scheme}://{request.get_host()}",
         'modo_weasyprint': forzar_pdf,
@@ -739,3 +1069,115 @@ def descargar_contrato_pdf(request, inscripcion_id):
             context['modo_weasyprint'] = False
 
     return render(request, 'portal_staff/contrato_pdf.html', context)
+
+
+# =========================================================================
+# VISTA EXCLUSIVA DEL SUPERVISOR (PRODUCTIVIDAD Y AUDITORÍA DE DIGITADORES)
+# =========================================================================
+@login_required(login_url='/accounts/login/')
+@user_passes_test(es_superusuario_exclusivo, login_url='/accounts/login/')
+def panel_supervisor(request):
+    """
+    Dashboard Privado del Supervisor:
+    - Ranking de productividad de Digitadores (Total de contratos, Contratos de Hoy, Ediciones).
+    - Ranking de tickets emitidos por Auxiliares en puerta.
+    - Bitácora detallada de cada contrato con filtro por Digitador y por Fecha.
+    """
+    hoy = timezone.localdate()
+    digitador_id = request.GET.get('digitador', '').strip()
+    fecha_filtro = request.GET.get('fecha', '').strip()
+    query = request.GET.get('q', '').strip()
+
+    usuarios_staff = User.objects.filter(
+        Q(is_superuser=True) |
+        Q(groups__name__icontains='digitador') |
+        Q(groups__name__icontains='secretar') |
+        Q(groups__name__icontains='auxiliar') |
+        Q(contratos_oficializados__isnull=False)
+    ).distinct()
+
+    total_contratos_global = Inscripcion.objects.filter(estado_solicitud='INSCRITO').count()
+    contratos_hoy_global = Inscripcion.objects.filter(
+        estado_solicitud='INSCRITO',
+        fecha_oficializacion__date=hoy
+    ).count()
+    sin_atribuir = Inscripcion.objects.filter(
+        estado_solicitud='INSCRITO',
+        inscrito_por__isnull=True
+    ).count()
+
+    ranking_digitadores = []
+    for u in usuarios_staff:
+        total_oficializados = Inscripcion.objects.filter(
+            estado_solicitud='INSCRITO',
+            inscrito_por=u
+        ).count()
+        oficializados_hoy = Inscripcion.objects.filter(
+            estado_solicitud='INSCRITO',
+            inscrito_por=u,
+            fecha_oficializacion__date=hoy
+        ).count()
+        total_editados = Inscripcion.objects.filter(ultima_edicion_por=u).count()
+        tickets_puerta = Inscripcion.objects.filter(creado_por_auxiliar=u).count()
+
+        ultimo_contrato = Inscripcion.objects.filter(
+            estado_solicitud='INSCRITO',
+            inscrito_por=u
+        ).order_by('-fecha_oficializacion').first()
+
+        porcentaje_aporte = round((total_oficializados / total_contratos_global) * 100, 1) if total_contratos_global > 0 else 0
+
+        nombre_completo = f"{u.first_name} {u.last_name}".strip() or u.username
+        roles_str = ", ".join([g.name for g in u.groups.all()]) or ("Supervisor" if u.is_superuser else "Staff")
+
+        ranking_digitadores.append({
+            'usuario': u,
+            'nombre': nombre_completo,
+            'username': u.username,
+            'roles': roles_str,
+            'total_oficializados': total_oficializados,
+            'oficializados_hoy': oficializados_hoy,
+            'total_editados': total_editados,
+            'tickets_puerta': tickets_puerta,
+            'porcentaje_aporte': porcentaje_aporte,
+            'ultimo_contrato': ultimo_contrato,
+        })
+
+    ranking_digitadores.sort(key=lambda x: (x['total_oficializados'], x['total_editados']), reverse=True)
+
+    bitacora_qs = Inscripcion.objects.select_related(
+        'estudiante', 'grado_a_cursar', 'inscrito_por', 'ultima_edicion_por', 'creado_por_auxiliar'
+    ).order_by('-fecha_oficializacion', '-fecha_ultima_edicion', '-id')
+
+    if digitador_id:
+        if digitador_id == 'sin_asignar':
+            bitacora_qs = bitacora_qs.filter(inscrito_por__isnull=True)
+        else:
+            bitacora_qs = bitacora_qs.filter(
+                Q(inscrito_por_id=digitador_id) | Q(ultima_edicion_por_id=digitador_id)
+            )
+
+    if fecha_filtro:
+        bitacora_qs = bitacora_qs.filter(fecha_oficializacion__date=fecha_filtro)
+
+    if query:
+        bitacora_qs = bitacora_qs.filter(
+            Q(correlativo_contrato__icontains=query) |
+            Q(ticket_generado__icontains=query) |
+            Q(estudiante__cui__icontains=query) |
+            Q(estudiante__nombres__icontains=query) |
+            Q(estudiante__apellidos__icontains=query)
+        )
+
+    context = {
+        'ranking_digitadores': ranking_digitadores,
+        'bitacora': bitacora_qs[:200],
+        'total_contratos_global': total_contratos_global,
+        'contratos_hoy_global': contratos_hoy_global,
+        'sin_atribuir': sin_atribuir,
+        'digitador_filtro': digitador_id,
+        'fecha_filtro': fecha_filtro,
+        'query': query,
+        'hoy': hoy,
+    }
+    return render(request, 'portal_staff/panel_supervisor.html', context)

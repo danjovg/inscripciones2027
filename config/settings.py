@@ -84,6 +84,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
+    'core.middleware.ControlAccesoSistemaMiddleware',
+
     'django_hosts.middleware.HostsResponseMiddleware', # Agregar al final
 ]
 

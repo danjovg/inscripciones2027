@@ -143,16 +143,20 @@
          data-texto="{{ item.instancia.grado|lower }} {{ item.instancia.nivel_educativo|lower }} {{ item.instancia.orientacion|default:''|lower }} {{ item.instancia.jornada|lower }}"
          data-estado="{{ item.color_estado }}">
         <div class="card h-100 border-0 shadow-sm">
-            <!-- Cabecera del Grado -->
-            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="badge bg-dark mb-1">{{ item.instancia.nivel_educativo }} — {{ item.instancia.jornada }}</span>
-                    <h5 class="fw-bold text-dark mb-0">{{ item.instancia.grado }}</h5>
-                    {% if item.instancia.orientacion %}
-                        <small class="text-primary fw-semibold">{{ item.instancia.orientacion }}</small>
-                    {% endif %}
+            <!-- Cabecera del Grado (Ajustada para nombres largos de carrera) -->
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <span class="badge bg-dark text-wrap text-start lh-sm py-1 px-2" style="font-size: 0.78rem;">
+                        {{ item.instancia.nivel_educativo }} — {{ item.instancia.jornada }}
+                    </span>
+                    <span class="badge bg-{{ item.color_estado }} flex-shrink-0">
+                        {{ item.etiqueta_estado }}
+                    </span>
                 </div>
-                <span class="badge bg-{{ item.color_estado }}">{{ item.etiqueta_estado }}</span>
+                <h5 class="fw-bold text-dark mb-0">{{ item.instancia.grado }}</h5>
+                {% if item.instancia.orientacion %}
+                    <small class="text-primary fw-semibold d-block mt-1 lh-sm">{{ item.instancia.orientacion }}</small>
+                {% endif %}
             </div>
 
             <!-- Cuerpo Visual de Ocupación -->

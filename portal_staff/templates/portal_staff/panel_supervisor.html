@@ -1,0 +1,276 @@
+{% extends "portal_staff/base_staff.html" %}
+
+{% block content %}
+<!-- ENCABEZADO PRIVADO DEL SUPERVISOR -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 bg-dark text-white p-4 rounded shadow-sm border-bottom border-4 border-warning">
+    <div>
+        <span class="badge bg-warning text-dark fw-bold mb-1">
+            <i class="bi bi-eye-slash-fill me-1"></i>VISTA PRIVADA — EXCLUSIVA PARA SUPERVISOR
+        </span>
+        <h2 class="mb-0 fw-bold">
+            <i class="bi bi-speedometer2 text-warning me-2"></i>Auditoría y Productividad de Digitadores
+        </h2>
+        <p class="text-white-50 small mb-0">Monitoreo en tiempo real de contratos emitidos por usuario, tiempos de atención y bitácora de expedientes</p>
+    </div>
+    <div class="mt-3 mt-md-0 text-md-end">
+        <a href="{% url 'panel_supervisor' %}" class="btn btn-outline-warning btn-sm fw-bold">
+            <i class="bi bi-arrow-clockwise me-1"></i> Actualizar Métricas en Vivo
+        </a>
+    </div>
+</div>
+
+<!-- KPIs RÁPIDOS DE PRODUCTIVIDAD -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-success">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase">Total Contratos Oficializados</span>
+                    <h2 class="fw-bold text-success mb-0 mt-1">{{ total_contratos_global }}</h2>
+                    <small class="text-muted">Acumulado del ciclo 2027</small>
+                </div>
+                <div class="bg-success bg-opacity-10 text-success rounded-circle p-3">
+                    <i class="bi bi-file-earmark-check-fill fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-primary">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase">Contratos Digitados Hoy ({{ hoy|date:"d/m/Y" }})</span>
+                    <h2 class="fw-bold text-primary mb-0 mt-1">{{ contratos_hoy_global }}</h2>
+                    <small class="text-muted">Producción del día en curso</small>
+                </div>
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-3">
+                    <i class="bi bi-lightning-charge-fill fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 border-start border-5 border-warning">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase">Personal Activo en Sistema</span>
+                    <h2 class="fw-bold text-dark mb-0 mt-1">{{ ranking_digitadores|length }}</h2>
+                    <small class="text-muted">Digitadores y Auxiliares monitoreados</small>
+                </div>
+                <div class="bg-warning bg-opacity-10 text-warning rounded-circle p-3">
+                    <i class="bi bi-people-fill fs-3"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLA 1: RANKING DE PRODUCTIVIDAD POR DIGITADOR / USUARIO -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold text-dark">
+            <i class="bi bi-trophy-fill text-warning me-2"></i>1. Rendimiento Individual por Digitador / Auxiliar
+        </h5>
+        <small class="text-muted">Haga clic en "Ver sus contratos" para filtrar qué alumnos inscribió cada persona</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase">
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Usuario / Nombre</th>
+                        <th>Rol Asignado</th>
+                        <th class="text-center">Contratos Hoy</th>
+                        <th class="text-center">Total Contratos Oficializados</th>
+                        <th style="width: 20%;">% del Trabajo Total</th>
+                        <th class="text-center">Tickets en Puerta</th>
+                        <th>Último Contrato Emitido</th>
+                        <th class="text-end pe-3">Auditar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in ranking_digitadores %}
+                    <tr class="{% if digitador_filtro == item.usuario.id|stringformat:'s' %}table-warning{% endif %}">
+                        <td class="ps-3 fw-bold text-muted">{{ forloop.counter }}</td>
+                        <td>
+                            <strong class="text-dark d-block">{{ item.nombre }}</strong>
+                            <small class="text-muted font-monospace">@{{ item.username }}</small>
+                        </td>
+                        <td><span class="badge bg-secondary">{{ item.roles }}</span></td>
+                        <td class="text-center">
+                            <span class="badge bg-primary fs-6">{{ item.oficializados_hoy }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-success fs-5 px-3">{{ item.total_oficializados }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                                    <div class="progress-bar bg-success" style="width: {{ item.porcentaje_aporte }}%"></div>
+                                </div>
+                                <span class="small fw-bold text-dark">{{ item.porcentaje_aporte }}%</span>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-dark">{{ item.tickets_puerta }}</span>
+                        </td>
+                        <td class="small">
+                            {% if item.ultimo_contrato %}
+                                <strong class="text-dark">{{ item.ultimo_contrato.correlativo_contrato }}</strong><br>
+                                <span class="text-muted">{{ item.ultimo_contrato.fecha_oficializacion|date:"d/m/Y H:i" }}</span>
+                            {% else %}
+                                <span class="text-muted">Sin contratos aún</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            <a href="?digitador={{ item.usuario.id }}#bitacora-detalle" class="btn btn-sm btn-outline-dark fw-bold">
+                                <i class="bi bi-search me-1"></i>Ver sus contratos
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TABLA 2: BITÁCORA DETALLADA DE QUIÉN DIGITÓ CADA CONTRATO -->
+<div class="card border-0 shadow-sm mb-5" id="bitacora-detalle">
+    <div class="card-header bg-white py-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 fw-bold text-dark">
+                <i class="bi bi-journal-text text-primary me-2"></i>2. Bitácora de Auditoría: ¿Quién digitó cada Contrato?
+            </h5>
+            {% if digitador_filtro or fecha_filtro or query %}
+                <a href="{% url 'panel_supervisor' %}#bitacora-detalle" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-circle me-1"></i>Quitar filtros
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Filtros de la Bitácora -->
+        <form method="GET" action="#bitacora-detalle" class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Buscar por Correlativo (CA-002), CUI o Alumno...">
+            </div>
+            <div class="col-md-4">
+                <select name="digitador" class="form-select">
+                    <option value="">-- Todos los Digitadores --</option>
+                    {% for item in ranking_digitadores %}
+                        <option value="{{ item.usuario.id }}" {% if digitador_filtro == item.usuario.id|stringformat:"s" %}selected{% endif %}>
+                            {{ item.nombre }} (@{{ item.username }}) — {{ item.total_oficializados }} contratos
+                        </option>
+                    {% endfor %}
+                    {% if sin_atribuir > 0 %}
+                        <option value="sin_asignar" {% if digitador_filtro == 'sin_asignar' %}selected{% endif %}>
+                            Inscritos antes de activar auditoría ({{ sin_atribuir }})
+                        </option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="fecha" value="{{ fecha_filtro }}" class="form-control" title="Filtrar por fecha de oficialización">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary fw-bold w-100">
+                    <i class="bi bi-funnel-fill me-1"></i> Filtrar Bitácora
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase">
+                    <tr>
+                        <th class="ps-3">Correlativo / Ticket</th>
+                        <th>Estudiante</th>
+                        <th>Grado</th>
+                        <th>Estado</th>
+                        <th>Digitador que Oficializó</th>
+                        <th>Fecha / Hora Exacta</th>
+                        <th>Última Edición</th>
+                        <th class="text-end pe-3">Inspeccionar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for insc in bitacora %}
+                    <tr>
+                        <td class="ps-3">
+                            {% if insc.correlativo_contrato %}
+                                <span class="badge bg-dark font-monospace fs-6">{{ insc.correlativo_contrato }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary font-monospace">Ticket: {{ insc.ticket_generado|default:"N/A" }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong class="text-dark d-block">{{ insc.estudiante.apellidos }}, {{ insc.estudiante.nombres }}</strong>
+                            <small class="text-muted font-monospace">CUI: {{ insc.estudiante.cui }}</small>
+                        </td>
+                        <td>
+                            <span class="small fw-semibold">{{ insc.grado_a_cursar.grado|default:"Sin grado" }}</span>
+                        </td>
+                        <td>
+                            {% if insc.estado_solicitud == 'INSCRITO' %}
+                                <span class="badge bg-success">INSCRITO</span>
+                            {% elif insc.estado_solicitud == 'PREINSCRITO' %}
+                                <span class="badge bg-warning text-dark">PREINSCRITO</span>
+                            {% else %}
+                                <span class="badge bg-secondary">BORRADOR</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if insc.inscrito_por %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1">
+                                    <i class="bi bi-person-check-fill me-1"></i>{{ insc.inscrito_por.get_full_name|default:insc.inscrito_por.username }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted small">---</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% if insc.fecha_oficializacion %}
+                                <strong>{{ insc.fecha_oficializacion|date:"d/m/Y" }}</strong> a las <strong>{{ insc.fecha_oficializacion|date:"H:i:s" }}</strong>
+                            {% else %}
+                                <span class="text-muted">---</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% if insc.ultima_edicion_por %}
+                                <span class="text-dark">{{ insc.ultima_edicion_por.username }}</span>
+                                <small class="text-muted d-block">{{ insc.fecha_ultima_edicion|date:"d/m H:i" }}</small>
+                            {% else %}
+                                <span class="text-muted">---</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'editar_expediente' insc.id %}" class="btn btn-outline-primary fw-bold" title="Abrir expediente completo">
+                                    <i class="bi bi-box-arrow-up-right"></i> Expediente
+                                </a>
+                                {% if insc.grado_a_cursar %}
+                                <a href="{% url 'descargar_contrato_pdf' insc.id %}" class="btn btn-outline-success fw-bold" title="Ver Contrato">
+                                    <i class="bi bi-file-earmark-text"></i> Contrato
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            No se encontraron registros en la bitácora con esos criterios.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
