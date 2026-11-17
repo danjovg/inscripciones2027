@@ -394,12 +394,13 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'panel_digitador' %}" class="btn btn-outline-secondary btn-lg fw-semibold">
+                        <i class="bi bi-arrow-left me-1"></i> Volver a Bandeja
+                    </a>
+
                     {% if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.grado_a_cursar %}
-                        <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}" class="btn btn-outline-dark btn-lg fw-bold">
-                            <i class="bi bi-printer-fill me-2"></i>Vista Previa e Imprimir Contrato
-                        </a>
-                        <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" class="btn btn-danger btn-lg fw-bold">
-                            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Descargar PDF
+                        <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" target="_blank" class="btn btn-danger btn-lg fw-bold shadow-sm">
+                            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Abrir / Imprimir Contrato PDF
                         </a>
                     {% endif %}
 
@@ -449,14 +450,14 @@
                         <ul class="small text-secondary mb-0 ps-3">
                             <li class="mb-1">Se guardarán todos los cambios realizados en la <strong>Sección A (Alumno y Grado)</strong>.</li>
                             <li class="mb-1">Se descontará <strong>1 cupo oficial</strong> del grado asignado y se bloqueará la edición pública.</li>
-                            <li>Se abrirá inmediatamente el <strong>Contrato de Adhesión y la Ficha Informativa</strong> listos para imprimir o descargar en PDF.</li>
+                            <li>Se abrirá en una <strong>pestaña nueva</strong> el Contrato de Adhesión y la Ficha Informativa listos para imprimir o descargar en PDF.</li>
                         </ul>
                     </div>
                     <div class="modal-footer bg-light">
                         <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">
                             Seguir Revisando
                         </button>
-                        <button type="submit" form="form-alumno-principal" name="accion" value="oficializar" class="btn btn-success fw-bold px-4">
+                        <button type="submit" form="form-alumno-principal" formtarget="_blank" name="accion" value="oficializar" id="btnConfirmarOficializar" class="btn btn-success fw-bold px-4">
                             <i class="bi bi-printer-fill me-2"></i>Sí, Oficializar y Abrir Contrato PDF
                         </button>
                     </div>
@@ -589,7 +590,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 5. AUTOCOMPLETADO AUTOMÁTICO DE RESPONSABLE POR DPI EN SECCIÓN B
     const inputDpiStaff = document.querySelector('#form-edicion-responsable #id_dpi');
     if (inputDpiStaff) {
-        // Crear contenedor para el aviso visual estilizado arriba del campo DPI
         const alertaDpi = document.createElement('div');
         alertaDpi.className = 'alert alert-success py-2 px-3 small fw-semibold mt-2 mb-0 d-none shadow-sm';
         inputDpiStaff.parentNode.appendChild(alertaDpi);
@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let ultimoDpiConsultado = inputDpiStaff.value.trim();
 
         function consultarDpiEnBD(dpiValor) {
-            const dpi = dpiValor.trim();
+            const dpi = dpiValor.replace(/[\s\-]+/g, '');
             if (dpi.length < 8 || dpi === ultimoDpiConsultado) return;
             ultimoDpiConsultado = dpi;
 
@@ -623,7 +623,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         setVal('#id_iglesia', data.iglesia);
                         setVal('#id_correo_electronico', data.correo_electronico);
 
-                        // Actualizar teléfonos respetando la librería de banderitas (intl-tel-input)
                         const inputCel = formResp.querySelector('#id_celular');
                         const inputFijo = formResp.querySelector('#id_telefono_fijo');
                         itiInstances.forEach(function(inst) {
@@ -647,9 +646,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(err => console.error('Error al consultar DPI:', err));
         }
 
-        // Dispara automáticamente al completar los 13 dígitos de un DPI o al salir del campo (para Pasaportes)
         inputDpiStaff.addEventListener('input', function() {
-            const limpio = this.value.trim();
+            const limpio = this.value.replace(/[\s\-]+/g, '');
             if (limpio.length === 13) {
                 consultarDpiEnBD(limpio);
             } else {
@@ -662,6 +660,48 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // 6. CÁLCULO AUTOMÁTICO DE EDAD AL CAMBIAR LA FECHA DE NACIMIENTO EN DIGITADOR
+    const inputFechaNac = document.getElementById('id_fecha_nacimiento');
+    const inputEdad = document.getElementById('id_edad');
+
+    function calcularEdadAutomatica() {
+        if (!inputFechaNac || !inputEdad || !inputFechaNac.value) return;
+        const partes = inputFechaNac.value.split('-');
+        if (partes.length === 3) {
+            const hoy = new Date();
+            const nac = new Date(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10));
+            let edad = hoy.getFullYear() - nac.getFullYear();
+            const m = hoy.getMonth() - nac.getMonth();
+            if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) {
+                edad--;
+            }
+            if (edad >= 0 && edad < 100) {
+                inputEdad.value = edad;
+            }
+        }
+    }
+
+    if (inputFechaNac) {
+        inputFechaNac.addEventListener('change', calcularEdadAutomatica);
+        inputFechaNac.addEventListener('input', calcularEdadAutomatica);
+        if (!inputEdad.value || inputEdad.value === '0') {
+            calcularEdadAutomatica();
+        }
+    }
+
+    // 7. PROTECCIÓN CONTRA DOBLE CLIC AL OFICIALIZAR INSCRIPCIÓN (Y RECARGA SUAVE DE LA PESTAÑA ACTUAL)
+    const btnOficializar = document.getElementById('btnConfirmarOficializar');
+    if (btnOficializar) {
+        btnOficializar.addEventListener('click', function() {
+            setTimeout(() => {
+                btnOficializar.disabled = true;
+                btnOficializar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generando Contrato...';
+            }, 50);
+            setTimeout(() => {
+                window.location.reload();
+            }, 2200);
+        });
+    }
 });
 </script>
 {% endblock %}

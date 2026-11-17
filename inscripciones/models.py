@@ -41,5 +41,11 @@ class Inscripcion(models.Model):
     )
     fecha_ultima_edicion = models.DateTimeField(auto_now=True)
 
+    # --- CONTROL DE ENTREGA DE PAPELERÍA FÍSICA EN SECRETARÍA ---
+    expediente_fisico_completo = models.BooleanField(
+        default=False,
+        verbose_name="📁 Expediente Físico Completado (Secretaría)"
+    )
+
     def __str__(self):
         return f"{self.estudiante} - {self.estado_solicitud}"

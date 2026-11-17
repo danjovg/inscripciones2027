@@ -3,6 +3,7 @@ import csv
 import json
 import os
 import random
+import re
 import string
 import unicodedata
 from datetime import date
@@ -12,11 +13,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.urls import reverse
 
 from academico.models import CarreraCuota
 from core.models import ConfiguracionAnual, CuotaMineducContrato
@@ -140,14 +143,18 @@ def dashboard_auxiliar(request):
         return redirect('/accounts/login/')
 
     query = request.GET.get('q', '').strip()
+    query_limpio = re.sub(r'[\s\-]+', '', query)
     resultados = []
 
     if query:
-        resultados = Estudiante.objects.filter(
+        q_filter = (
             Q(cui__icontains=query) |
             Q(nombres__icontains=query) |
             Q(apellidos__icontains=query)
         )
+        if query_limpio and query_limpio != query:
+            q_filter |= Q(cui__icontains=query_limpio)
+        resultados = Estudiante.objects.filter(q_filter)
 
     context = {
         'resultados': resultados,
@@ -161,7 +168,8 @@ def dashboard_auxiliar(request):
 def generar_ticket_rapido(request):
     """Crea un expediente rápido en BORRADOR y registra qué Auxiliar lo emitió."""
     if request.method == 'POST':
-        cui = request.POST.get('cui', '').strip()
+        cui_raw = request.POST.get('cui', '').strip()
+        cui = re.sub(r'[\s\-]+', '', cui_raw)
         nombres = request.POST.get('nombres', '').strip().upper()
         apellidos = request.POST.get('apellidos', '').strip().upper()
 
@@ -262,7 +270,7 @@ def buscar_dpi_staff_ajax(request, dpi):
     Busca si el DPI o Pasaporte del responsable ya existe en la BD (ej. por otro hermano)
     y devuelve todos sus datos para autocompletar el formulario en la Sección B.
     """
-    dpi_limpio = dpi.strip()
+    dpi_limpio = re.sub(r'[\s\-]+', '', dpi or '')
     responsable = Responsable.objects.filter(dpi=dpi_limpio).first()
     if responsable:
         return JsonResponse({
@@ -284,6 +292,7 @@ def buscar_dpi_staff_ajax(request, dpi):
         })
     return JsonResponse({'existe': False})
 
+
 # =========================================================================
 # VISTAS DEL ROL: DIGITADOR
 # =========================================================================
@@ -291,7 +300,25 @@ def buscar_dpi_staff_ajax(request, dpi):
 @user_passes_test(es_digitador_o_superior, login_url='/accounts/login/')
 def panel_digitador(request):
     """Bandeja del Digitador con pestañas de Pendientes, Inscritos y Todos."""
+    # Acción exclusiva del Supervisor: Generar tickets masivos a todos los que están SIN TICKET
+    if request.method == 'POST' and request.POST.get('accion') == 'generar_tickets_faltantes':
+        if request.user.is_superuser:
+            sin_ticket_qs = Inscripcion.objects.filter(
+                Q(ticket_generado__isnull=True) | Q(ticket_generado='')
+            )
+            total_generados = 0
+            for insc in sin_ticket_qs:
+                insc.ticket_generado = generar_codigo_ticket()
+                insc.save(update_fields=['ticket_generado'])
+                total_generados += 1
+            messages.success(
+                request,
+                f'⚡ Se generaron y asignaron {total_generados} códigos de Ticket a los expedientes que no tenían.'
+            )
+        return redirect('panel_digitador')
+
     query = request.GET.get('q', '').strip()
+    query_limpio = re.sub(r'[\s\-]+', '', query)
     filtro_estado = request.GET.get('estado', 'pendientes')
 
     if filtro_estado == 'inscritos':
@@ -302,26 +329,25 @@ def panel_digitador(request):
         inscripciones_qs = Inscripcion.objects.exclude(estado_solicitud='INSCRITO').select_related('estudiante', 'grado_a_cursar').order_by('-id')
 
     if query:
-        inscripciones_filtradas = inscripciones_qs.filter(
+        q_cond = (
             Q(ticket_generado__icontains=query) |
             Q(correlativo_contrato__icontains=query) |
             Q(estudiante__cui__icontains=query) |
             Q(estudiante__nombres__icontains=query) |
             Q(estudiante__apellidos__icontains=query)
         )
+        if query_limpio and query_limpio != query:
+            q_cond |= Q(estudiante__cui__icontains=query_limpio)
+
+        inscripciones_filtradas = inscripciones_qs.filter(q_cond)
         if not inscripciones_filtradas.exists() and filtro_estado == 'pendientes':
-            inscripciones_filtradas = Inscripcion.objects.filter(
-                Q(ticket_generado__icontains=query) |
-                Q(correlativo_contrato__icontains=query) |
-                Q(estudiante__cui__icontains=query) |
-                Q(estudiante__nombres__icontains=query) |
-                Q(estudiante__apellidos__icontains=query)
-            ).select_related('estudiante', 'grado_a_cursar').order_by('-id')
+            inscripciones_filtradas = Inscripcion.objects.filter(q_cond).select_related('estudiante', 'grado_a_cursar').order_by('-id')
             filtro_estado = 'todos'
         inscripciones_qs = inscripciones_filtradas
 
     total_pendientes = Inscripcion.objects.exclude(estado_solicitud='INSCRITO').count()
     total_inscritos = Inscripcion.objects.filter(estado_solicitud='INSCRITO').count()
+    total_sin_ticket = Inscripcion.objects.filter(Q(ticket_generado__isnull=True) | Q(ticket_generado='')).count()
 
     context = {
         'inscripciones': inscripciones_qs,
@@ -329,6 +355,7 @@ def panel_digitador(request):
         'filtro_estado': filtro_estado,
         'total_pendientes': total_pendientes,
         'total_inscritos': total_inscritos,
+        'total_sin_ticket': total_sin_ticket,
     }
     return render(request, 'portal_staff/panel_digitador.html', context)
 
@@ -379,9 +406,15 @@ def editar_expediente_digitador(request, inscripcion_id):
 
         # ACCIÓN A: GUARDAR O EDITAR UN RESPONSABLE LEGAL (CON DPI)
         if accion == 'guardar_responsable':
-            dpi_ingresado = request.POST.get('dpi', '').strip()
+            dpi_raw = request.POST.get('dpi', '').strip()
+            dpi_ingresado = re.sub(r'[\s\-]+', '', dpi_raw)
             instancia_resp = Responsable.objects.filter(dpi=dpi_ingresado).first()
-            form_responsable = ResponsableForm(request.POST, instance=instancia_resp)
+
+            post_data = request.POST.copy()
+            if dpi_ingresado:
+                post_data['dpi'] = dpi_ingresado
+
+            form_responsable = ResponsableForm(post_data, instance=instancia_resp)
 
             if form_responsable.is_valid():
                 resp_obj = form_responsable.save(commit=False)
@@ -546,33 +579,45 @@ def editar_expediente_digitador(request, inscripcion_id):
                         )
                         return redirect(f"/digitador/editar/{inscripcion.id}/?editar_resp={r.dpi}#form-edicion-responsable")
 
-                    es_dir = es_direccion(request.user)
-                    if hasattr(grado, 'cupos_ocupados') and hasattr(grado, 'cupo_maximo'):
-                        if inscripcion.estado_solicitud != 'INSCRITO' and grado.cupos_ocupados >= grado.cupo_maximo and not es_dir:
-                            messages.error(request, f'⚠️ ¡Cupo lleno en {grado}! Solicite autorización a Dirección para inscribirlo.')
-                            return redirect('editar_expediente', inscripcion_id=inscripcion.id)
+                    # Transacción atómica para evitar duplicidad de correlativo o descuento doble de cupo por doble clic
+                    with transaction.atomic():
+                        insc_bloqueada = Inscripcion.objects.select_for_update().get(id=inscripcion.id)
+                        grado_bloqueado = CarreraCuota.objects.select_for_update().get(id=grado.id)
+                        es_dir = es_direccion(request.user)
 
-                        if inscripcion.estado_solicitud != 'INSCRITO':
-                            grado.cupos_ocupados += 1
-                            grado.save()
+                        if insc_bloqueada.estado_solicitud != 'INSCRITO':
+                            if grado_bloqueado.cupos_ocupados >= grado_bloqueado.cupo_maximo and not es_dir:
+                                messages.error(request, f'⚠️ ¡Cupo lleno en {grado_bloqueado}! Solicite autorización a Dirección para inscribirlo.')
+                                return redirect('editar_expediente', inscripcion_id=inscripcion.id)
 
-                    if not insc_obj.correlativo_contrato:
-                        config = ConfiguracionAnual.objects.filter(anio_ciclo=grado.ciclo.anio_ciclo).first() or ConfiguracionAnual.objects.last()
-                        if config:
-                            insc_obj.correlativo_contrato = construir_correlativo_oficial(config, grado)
-                            config.correlativo_actual += 1
-                            config.save()
+                            grado_bloqueado.cupos_ocupados += 1
+                            grado_bloqueado.save(update_fields=['cupos_ocupados'])
 
-                    # Registrar trazabilidad de qué Digitador oficializó el contrato y a qué hora
-                    if not insc_obj.inscrito_por:
-                        insc_obj.inscrito_por = request.user
-                    if not insc_obj.fecha_oficializacion:
-                        insc_obj.fecha_oficializacion = timezone.now()
+                        if not insc_bloqueada.correlativo_contrato:
+                            config = ConfiguracionAnual.objects.select_for_update().filter(
+                                anio_ciclo=grado_bloqueado.ciclo.anio_ciclo
+                            ).first() or ConfiguracionAnual.objects.select_for_update().last()
+                            if config:
+                                insc_obj.correlativo_contrato = construir_correlativo_oficial(config, grado_bloqueado)
+                                config.correlativo_actual += 1
+                                config.save(update_fields=['correlativo_actual'])
+                        else:
+                            insc_obj.correlativo_contrato = insc_bloqueada.correlativo_contrato
 
-                    insc_obj.estado_solicitud = 'INSCRITO'
-                    insc_obj.save()
+                        if not insc_bloqueada.inscrito_por:
+                            insc_obj.inscrito_por = request.user
+                        else:
+                            insc_obj.inscrito_por = insc_bloqueada.inscrito_por
 
-                    return redirect('descargar_contrato_pdf', inscripcion_id=inscripcion.id)
+                        if not insc_bloqueada.fecha_oficializacion:
+                            insc_obj.fecha_oficializacion = timezone.now()
+                        else:
+                            insc_obj.fecha_oficializacion = insc_bloqueada.fecha_oficializacion
+
+                        insc_obj.estado_solicitud = 'INSCRITO'
+                        insc_obj.save()
+
+                    return redirect(f"{reverse('descargar_contrato_pdf', args=[inscripcion.id])}?forzar_pdf=1")
 
                 else:
                     insc_obj.save()
@@ -614,7 +659,29 @@ def panel_secretaria(request):
         inscripcion = get_object_or_404(Inscripcion, id=inscripcion_id)
         estudiante = inscripcion.estudiante
 
-        if accion == 'anular_contrato':
+        if accion == 'toggle_expediente_fisico':
+            inscripcion.expediente_fisico_completo = not inscripcion.expediente_fisico_completo
+            inscripcion.ultima_edicion_por = request.user
+            inscripcion.save(update_fields=['expediente_fisico_completo', 'ultima_edicion_por'])
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                fisicos_ok = Inscripcion.objects.filter(estado_solicitud='INSCRITO', expediente_fisico_completo=True).count()
+                fisicos_pend = Inscripcion.objects.filter(estado_solicitud='INSCRITO', expediente_fisico_completo=False).count()
+                return JsonResponse({
+                    'ok': True,
+                    'completo': inscripcion.expediente_fisico_completo,
+                    'fisicos_ok': fisicos_ok,
+                    'fisicos_pend': fisicos_pend,
+                })
+
+            estado_txt = "COMPLETADO ✅" if inscripcion.expediente_fisico_completo else "PENDIENTE 📁"
+            messages.success(
+                request,
+                f'📁 Expediente físico de {estudiante.nombres} {estudiante.apellidos} marcado como: {estado_txt}'
+            )
+            return redirect(request.META.get('HTTP_REFERER', 'panel_secretaria'))
+
+        elif accion == 'anular_contrato':
             if inscripcion.estado_solicitud == 'INSCRITO':
                 grado_actual = inscripcion.grado_a_cursar
                 if grado_actual and grado_actual.cupos_ocupados > 0:
@@ -674,25 +741,37 @@ def panel_secretaria(request):
             return redirect('panel_secretaria')
 
     query = request.GET.get('q', '').strip()
+    query_limpio = re.sub(r'[\s\-]+', '', query)
     grado_filtro = request.GET.get('grado', '').strip()
     estado_filtro = request.GET.get('estado', 'INSCRITO').strip()
+    fisico_filtro = request.GET.get('fisico', '').strip()
 
     inscripciones_qs = Inscripcion.objects.select_related('estudiante', 'grado_a_cursar').order_by('-id')
 
-    if estado_filtro and estado_filtro != 'TODOS':
+    if estado_filtro == 'PENDIENTES_COLA':
+        inscripciones_qs = inscripciones_qs.exclude(estado_solicitud='INSCRITO')
+    elif estado_filtro and estado_filtro != 'TODOS':
         inscripciones_qs = inscripciones_qs.filter(estado_solicitud=estado_filtro)
 
     if grado_filtro:
         inscripciones_qs = inscripciones_qs.filter(grado_a_cursar_id=grado_filtro)
 
+    if fisico_filtro == 'COMPLETO':
+        inscripciones_qs = inscripciones_qs.filter(expediente_fisico_completo=True)
+    elif fisico_filtro == 'PENDIENTE':
+        inscripciones_qs = inscripciones_qs.filter(expediente_fisico_completo=False)
+
     if query:
-        inscripciones_qs = inscripciones_qs.filter(
+        q_cond = (
             Q(correlativo_contrato__icontains=query) |
             Q(ticket_generado__icontains=query) |
             Q(estudiante__cui__icontains=query) |
             Q(estudiante__nombres__icontains=query) |
             Q(estudiante__apellidos__icontains=query)
         )
+        if query_limpio and query_limpio != query:
+            q_cond |= Q(estudiante__cui__icontains=query_limpio)
+        inscripciones_qs = inscripciones_qs.filter(q_cond)
 
     listado_expedientes = []
     for insc in inscripciones_qs:
@@ -711,8 +790,11 @@ def panel_secretaria(request):
     ).order_by('orden', 'nivel_educativo', 'grado')
 
     total_inscritos = Inscripcion.objects.filter(estado_solicitud='INSCRITO').count()
+    total_fisico_ok = Inscripcion.objects.filter(estado_solicitud='INSCRITO', expediente_fisico_completo=True).count()
+    total_fisico_pendiente = Inscripcion.objects.filter(estado_solicitud='INSCRITO', expediente_fisico_completo=False).count()
     total_preinscritos = Inscripcion.objects.filter(estado_solicitud='PREINSCRITO').count()
     total_borradores = Inscripcion.objects.filter(estado_solicitud='BORRADOR').count()
+    total_en_cola = total_preinscritos + total_borradores
 
     context = {
         'listado_expedientes': listado_expedientes,
@@ -720,19 +802,24 @@ def panel_secretaria(request):
         'query': query,
         'grado_filtro': grado_filtro,
         'estado_filtro': estado_filtro,
+        'fisico_filtro': fisico_filtro,
         'total_inscritos': total_inscritos,
+        'total_fisico_ok': total_fisico_ok,
+        'total_fisico_pendiente': total_fisico_pendiente,
         'total_preinscritos': total_preinscritos,
         'total_borradores': total_borradores,
+        'total_en_cola': total_en_cola,
     }
     return render(request, 'portal_staff/panel_secretaria.html', context)
 
 
 @login_required(login_url='/accounts/login/')
-@user_passes_test(es_secretaria_o_superior, login_url='/accounts/login/')
+@user_passes_test(es_superusuario_exclusivo, login_url='/accounts/login/')
 def exportar_matricula_csv(request):
     """Exporta a Excel (CSV con BOM UTF-8) la nómina de estudiantes."""
     grado_filtro = request.GET.get('grado', '').strip()
     estado_filtro = request.GET.get('estado', 'INSCRITO').strip()
+    fisico_filtro = request.GET.get('fisico', '').strip()
     query = request.GET.get('q', '').strip()
 
     qs = Inscripcion.objects.select_related('estudiante', 'grado_a_cursar').order_by(
@@ -743,6 +830,10 @@ def exportar_matricula_csv(request):
         qs = qs.filter(estado_solicitud=estado_filtro)
     if grado_filtro:
         qs = qs.filter(grado_a_cursar_id=grado_filtro)
+    if fisico_filtro == 'COMPLETO':
+        qs = qs.filter(expediente_fisico_completo=True)
+    elif fisico_filtro == 'PENDIENTE':
+        qs = qs.filter(expediente_fisico_completo=False)
     if query:
         qs = qs.filter(
             Q(correlativo_contrato__icontains=query) |
@@ -759,6 +850,7 @@ def exportar_matricula_csv(request):
     writer.writerow([
         'CORRELATIVO CONTRATO',
         'ESTADO',
+        'EXPEDIENTE FISICO COMPLETO',
         'CUI ESTUDIANTE',
         'APELLIDOS ESTUDIANTE',
         'NOMBRES ESTUDIANTE',
@@ -793,6 +885,7 @@ def exportar_matricula_csv(request):
         writer.writerow([
             insc.correlativo_contrato or 'SIN CORRELATIVO',
             insc.estado_solicitud,
+            'SI (COMPLETO)' if insc.expediente_fisico_completo else 'PENDIENTE',
             f"'{est.cui}",
             est.apellidos,
             est.nombres,
@@ -868,6 +961,7 @@ def panel_direccion(request):
             return redirect('panel_direccion')
 
     carreras = CarreraCuota.objects.select_related('ciclo').all()
+    cuotas_tabla = list(CuotaMineducContrato.objects.all())
 
     total_cupo_colegio = 0
     total_inscritos_colegio = 0
@@ -877,6 +971,35 @@ def panel_direccion(request):
     datos_grados = []
 
     for c in carreras:
+        # Buscar su tarifa correspondiente directamente en la tabla CuotaMineducContrato
+        texto_grado = _normalizar_texto(f"{c.nivel_educativo} {c.grado} {c.orientacion or ''}")
+        cuota_match = None
+
+        for ct in cuotas_tabla:
+            nivel_ct = _normalizar_texto(ct.nivel_educacion)
+            if ('computacion' in nivel_ct or 'bachillerato' in nivel_ct) and ('computacion' in texto_grado or 'bachillerato' in texto_grado):
+                cuota_match = ct
+                break
+            elif ('perito' in nivel_ct or 'administracion' in nivel_ct or 'pae' in nivel_ct) and ('perito' in texto_grado or 'administracion' in texto_grado or 'pae' in texto_grado):
+                cuota_match = ct
+                break
+            elif 'basico' in nivel_ct and 'basico' in texto_grado:
+                cuota_match = ct
+                break
+            elif 'preprimaria' in nivel_ct and 'preprimaria' in texto_grado:
+                cuota_match = ct
+                break
+            elif 'primaria' in nivel_ct and 'primaria' in texto_grado and 'preprimaria' not in texto_grado:
+                cuota_match = ct
+                break
+
+        # Sincronizar los montos reales (MENSUALIDAD A COBRAR COLEGIO e INSCRIPCIÓN A COBRAR COLEGIO)
+        if cuota_match:
+            if c.cuota_inscripcion != cuota_match.inscripcion_colegio or c.cuota_mensual != cuota_match.mensualidad_colegio:
+                c.cuota_inscripcion = cuota_match.inscripcion_colegio
+                c.cuota_mensual = cuota_match.mensualidad_colegio
+                c.save(update_fields=['cuota_inscripcion', 'cuota_mensual'])
+
         inscritos = Inscripcion.objects.filter(grado_a_cursar=c, estado_solicitud='INSCRITO').count()
         preinscritos = Inscripcion.objects.filter(grado_a_cursar=c, estado_solicitud='PREINSCRITO').count()
         borradores = Inscripcion.objects.filter(grado_a_cursar=c, estado_solicitud='BORRADOR').count()
@@ -974,10 +1097,12 @@ def descargar_contrato_pdf(request, inscripcion_id):
 
     # Solo asigna correlativo si el alumno YA ESTÁ INSCRITO y por alguna razón no lo tenía
     if not inscripcion.correlativo_contrato and config:
-        inscripcion.correlativo_contrato = construir_correlativo_oficial(config, grado)
-        config.correlativo_actual += 1
-        config.save()
-        inscripcion.save(update_fields=['correlativo_contrato'])
+        with transaction.atomic():
+            config_lock = ConfiguracionAnual.objects.select_for_update().get(id=config.id)
+            inscripcion.correlativo_contrato = construir_correlativo_oficial(config_lock, grado)
+            config_lock.correlativo_actual += 1
+            config_lock.save(update_fields=['correlativo_actual'])
+            inscripcion.save(update_fields=['correlativo_contrato'])
 
     correlativo = inscripcion.correlativo_contrato
 
@@ -1047,7 +1172,7 @@ def descargar_contrato_pdf(request, inscripcion_id):
                 encoded = base64.b64encode(img_f.read()).decode('utf-8')
                 firma_base64 = f"data:image/png;base64,{encoded}"
 
-    # 5. Fecha en español
+    # 5. Fecha en español usando Zona Horaria Local de Guatemala
     meses_es = {
         1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril', 5: 'mayo', 6: 'junio',
         7: 'julio', 8: 'agosto', 9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
@@ -1057,7 +1182,7 @@ def descargar_contrato_pdf(request, inscripcion_id):
         2027: 'veintisiete',
         2028: 'veintiocho',
     }
-    hoy = date.today()
+    hoy = timezone.localdate()
 
     if getattr(responsable, 'tipo_documento', 'DPI') == 'Pasaporte':
         frase_documento = "Pasaporte número"
@@ -1065,7 +1190,6 @@ def descargar_contrato_pdf(request, inscripcion_id):
         frase_documento = "Documento Personal de Identificación -DPI- con Código Único de Identificación -CUI- número"
 
     sigla_jornada_ficha = 'JM' if 'MATUTINA' in (grado.jornada or '').upper() else 'JV'
-    forzar_pdf = request.GET.get('forzar_pdf') == '1'
 
     mora_val = config.monto_mora if config else 20
     mora_str = f"{int(mora_val)}" if mora_val == int(mora_val) else f"{mora_val:.2f}"
@@ -1091,21 +1215,19 @@ def descargar_contrato_pdf(request, inscripcion_id):
         'fecha_anio_sufijo': anios_sufijo.get(hoy.year, str(hoy.year)),
         'frase_documento': frase_documento,
         'url_base': f"{request.scheme}://{request.get_host()}",
-        'modo_weasyprint': forzar_pdf,
+        'modo_weasyprint': True,  # Siempre activo para no mostrar nunca la barra HTML intermedia
     }
 
-    if forzar_pdf:
-        try:
-            from weasyprint import HTML
-            html_string = render_to_string('portal_staff/contrato_pdf.html', context, request=request)
-            pdf_file = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
-            response = HttpResponse(pdf_file, content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="Contrato_{correlativo}_{estudiante.cui}.pdf"'
-            return response
-        except Exception:
-            context['modo_weasyprint'] = False
-
-    return render(request, 'portal_staff/contrato_pdf.html', context)
+    try:
+        from weasyprint import HTML
+        html_string = render_to_string('portal_staff/contrato_pdf.html', context, request=request)
+        pdf_file = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
+        response = HttpResponse(pdf_file, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="Contrato_{correlativo}_{estudiante.cui}.pdf"'
+        return response
+    except Exception:
+        # En Windows local (si no está instalado GTK/WeasyPrint), abre directo el diálogo de impresión y oculta la barra
+        return render(request, 'portal_staff/contrato_pdf.html', context)
 
 
 # =========================================================================

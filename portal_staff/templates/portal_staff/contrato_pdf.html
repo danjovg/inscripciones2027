@@ -138,6 +138,7 @@
             width: 100%;
             border-collapse: collapse;
             page-break-inside: avoid;
+            break-inside: avoid;
         }
         .linea-firma-flex {
             display: flex;
@@ -168,49 +169,87 @@
             z-index: 2;
             pointer-events: none;
         }
-        .salto-pagina {
+
+        /* ===================================================================
+           ESTILOS COMPACTADOS DE LA FICHA INFORMATIVA (1 SOLA HOJA GARANTIZADA)
+           =================================================================== */
+        .contenedor-ficha-una-pagina {
             page-break-before: always;
+            break-before: page;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            font-size: 9pt;
+            line-height: 1.18;
         }
         .ficha-header {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
         .cuadro-foto {
-            width: 3cm;
-            height: 3.5cm;
+            width: 2.5cm;
+            height: 2.8cm;
             border: 1px solid #000;
             text-align: center;
             vertical-align: middle;
-            font-size: 9pt;
+            font-size: 8pt;
             font-style: italic;
         }
         .ficha-seccion {
             background-color: #e9ecef;
             border: 1px solid #000;
-            padding: 4px 8px;
+            padding: 2.5px 7px;
             font-weight: bold;
-            font-size: 10.5pt;
-            margin-top: 12px;
-            margin-bottom: 8px;
+            font-size: 9.2pt;
+            margin-top: 6px;
+            margin-bottom: 4px;
         }
         .tabla-ficha {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         .tabla-ficha td {
-            padding: 4px 6px;
+            padding: 2.5px 5px;
             border-bottom: 1px dotted #888;
             vertical-align: top;
+            font-size: 9pt;
+        }
+        table.tabla-emergencia-ficha {
+            width: 100%;
+            margin: 3px 0 4px 0;
+            border-collapse: collapse;
+            font-size: 8.6pt;
+            line-height: 1.15;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        table.tabla-emergencia-ficha th, table.tabla-emergencia-ficha td {
+            border: 1px solid #000;
+            padding: 2px 6px;
+            vertical-align: middle;
+        }
+        table.tabla-emergencia-ficha th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f8f9fa;
         }
         .nota-legal {
             border: 1px solid #000;
-            padding: 10px 14px;
-            margin-top: 14px;
-            font-size: 9.8pt;
+            padding: 6px 10px;
+            margin-top: 7px;
+            font-size: 8.6pt;
+            line-height: 1.16;
             text-align: justify;
             background-color: #fafafa;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .firma-ficha-box {
+            text-align: center;
+            margin-top: 34px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
     </style>
 </head>
@@ -322,7 +361,7 @@
             <span class="clausula-titulo">SEXTA: CUOTAS.</span>
             Como Representante del Educando me comprometo a efectuar únicamente los siguientes pagos, sin necesidad de cobro, ni requerimiento alguno:
 
-        <!-- Tabla 1: Imprime todos los niveles/carreras desde CuotaMineducContrato -->
+            <!-- Tabla 1: Imprime todos los niveles/carreras desde CuotaMineducContrato -->
             <table class="tabla-cuotas-todos">
                 <thead>
                     <tr>
@@ -456,136 +495,136 @@
         </table>
 
         <!-- =================================================================== -->
-        <!-- DOCUMENTO 2: FICHA INFORMATIVA (SE MANTIENE TAL COMO ESTÁ)          -->
+        <!-- DOCUMENTO 2: FICHA INFORMATIVA COMPACTADA (1 SOLA HOJA GARANTIZADA) -->
         <!-- =================================================================== -->
-        <div class="salto-pagina"></div>
-
-        <table class="ficha-header">
-            <tr>
-                <td style="width: 22%;">
-                    <div class="cuadro-foto">
-                        <br><br>Fotografía<br>Reciente
-                    </div>
-                </td>
-                <td style="width: 56%; text-align: center; vertical-align: middle;">
-                    <img src="{{ url_base }}{% static 'portal_staff/img/logo_colegio.png' %}" style="height: 60px; width: auto;" onerror="this.style.display='none'"><br>
-                    <strong style="font-size: 13pt;">COLEGIO EVANGÉLICO MIXTO “AMIGOS”</strong><br>
-                    <strong style="font-size: 11.5pt;">Ficha Informativa {{ sigla_jornada_ficha }} — Ciclo Escolar {{ config.anio_ciclo|default:"2027" }}</strong><br>
-                    <em style="font-size: 9pt;">La siguiente información es de carácter obligatorio, revisar información antes de firmar para verificar veracidad.</em>
-                </td>
-                <td style="width: 22%; text-align: right; vertical-align: top; font-size: 10pt;">
-                    <strong>Correlativo:</strong><br>
-                    <span style="font-size: 11pt; font-weight: bold;">{{ correlativo }}</span>
-                </td>
-            </tr>
-        </table>
-
-        <div class="ficha-seccion">1. Datos Generales y Médicos del Estudiante</div>
-        <table class="tabla-ficha">
-            <tr>
-                <td style="width: 50%;"><strong>Apellidos:</strong> {{ estudiante.apellidos }}</td>
-                <td style="width: 50%;"><strong>Nombres:</strong> {{ estudiante.nombres }}</td>
-            </tr>
-            <tr>
-                <td><strong>CUI Estudiante:</strong> {{ estudiante.cui }}</td>
-                <td><strong>Grado a Cursar:</strong> {{ grado.grado }} {{ grado.orientacion|default:"" }} ({{ grado.jornada }})</td>
-            </tr>
-            <tr>
-                <td><strong>Fecha de nacimiento:</strong> {{ estudiante.fecha_nacimiento|date:"d/m/Y" }}</td>
-                <td><strong>Edad:</strong> {{ estudiante.edad }} años | <strong>Género:</strong> {{ estudiante.genero|default:"---" }}</td>
-            </tr>
-            <tr>
-                <td colspan="2"><strong>Dirección de residencia:</strong> {{ responsable.direccion }}</td>
-            </tr>
-            <tr>
-                <td><strong>Teléfono del estudiante:</strong> {{ estudiante.telefono|default:"No indicó" }}</td>
-                <td><strong>Tipo de sangre:</strong> {{ estudiante.tipo_sangre|default:"No lo sabe" }}</td>
-            </tr>
-            <tr>
-                <td colspan="2"><strong>Enfermedades o alergias que padece:</strong> {{ estudiante.enfermedades_padece|default:"NINGUNA REPORTADA" }}</td>
-            </tr>
-            <tr>
-                <td><strong>¿Impedimento físico?:</strong> {% if estudiante.impedimento_fisico %}SÍ{% else %}NO{% endif %}</td>
-                <td><strong>Detalle impedimento:</strong> {{ estudiante.detalle_impedimento|default:"NINGUNO" }}</td>
-            </tr>
-            <tr>
-                <td><strong>¿Con quién vive?:</strong> {{ estudiante.vive_con }}{% if estudiante.vive_con_otro %} ({{ estudiante.vive_con_otro }}){% endif %}</td>
-                <td><strong>¿De quién depende económicamente?:</strong> {{ estudiante.depende_de }}{% if estudiante.depende_de_otro %} ({{ estudiante.depende_de_otro }}){% endif %}</td>
-            </tr>
-        </table>
-
-        <div class="ficha-seccion">2. En Caso de Emergencia a Quién Avisar</div>
-        <table class="tabla-mineduc" style="width: 100%;">
-            <thead>
+        <div class="contenedor-ficha-una-pagina">
+            <table class="ficha-header">
                 <tr>
-                    <th style="width: 28%;">PARENTESCO / RELACIÓN</th>
-                    <th style="width: 47%;">NOMBRE COMPLETO</th>
-                    <th style="width: 25%;">TELÉFONO CELULAR</th>
+                    <td style="width: 20%;">
+                        <div class="cuadro-foto">
+                            <br><br>Fotografía<br>Reciente
+                        </div>
+                    </td>
+                    <td style="width: 60%; text-align: center; vertical-align: middle;">
+                        <img src="{{ url_base }}{% static 'portal_staff/img/logo_colegio.png' %}" style="height: 48px; width: auto;" onerror="this.style.display='none'"><br>
+                        <strong style="font-size: 11.8pt;">COLEGIO EVANGÉLICO MIXTO “AMIGOS”</strong><br>
+                        <strong style="font-size: 10.5pt;">Ficha Informativa {{ sigla_jornada_ficha }} — Ciclo Escolar {{ config.anio_ciclo|default:"2027" }}</strong><br>
+                        <em style="font-size: 8.3pt;">La siguiente información es de carácter obligatorio, revisar información antes de firmar para verificar veracidad.</em>
+                    </td>
+                    <td style="width: 20%; text-align: right; vertical-align: top; font-size: 9pt;">
+                        <strong>Correlativo:</strong><br>
+                        <span style="font-size: 10pt; font-weight: bold;">{{ correlativo }}</span>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                {% for v in todos_los_vinculos %}
+            </table>
+
+            <div class="ficha-seccion">1. Datos Generales y Médicos del Estudiante</div>
+            <table class="tabla-ficha">
                 <tr>
-                    <td><strong>{{ v.parentesco|upper }}</strong> {% if v.es_contacto_principal %}(Firmante){% endif %}</td>
-                    <td>{{ v.responsable.nombres }} {{ v.responsable.apellidos }}</td>
-                    <td style="text-align: center;">{{ v.responsable.celular }}</td>
+                    <td style="width: 50%;"><strong>Apellidos:</strong> {{ estudiante.apellidos }}</td>
+                    <td style="width: 50%;"><strong>Nombres:</strong> {{ estudiante.nombres }}</td>
                 </tr>
-                {% endfor %}
-                {% for ce in contactos_emergencia %}
                 <tr>
-                    <td><strong>{{ ce.parentesco }}</strong> (Emergencia)</td>
-                    <td>{{ ce.nombre_completo }}</td>
-                    <td style="text-align: center;">{{ ce.celular }}</td>
+                    <td><strong>CUI Estudiante:</strong> {{ estudiante.cui }}</td>
+                    <td><strong>Grado a Cursar:</strong> {{ grado.grado }} {{ grado.orientacion|default:"" }} ({{ grado.jornada }})</td>
                 </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                <tr>
+                    <td><strong>Fecha de nacimiento:</strong> {{ estudiante.fecha_nacimiento|date:"d/m/Y" }}</td>
+                    <td><strong>Edad:</strong> {{ estudiante.edad }} años | <strong>Género:</strong> {{ estudiante.genero|default:"---" }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2"><strong>Dirección de residencia:</strong> {{ responsable.direccion }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Teléfono del estudiante:</strong> {{ estudiante.telefono|default:"No indicó" }}</td>
+                    <td><strong>Tipo de sangre:</strong> {{ estudiante.tipo_sangre|default:"No lo sabe" }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2"><strong>Enfermedades o alergias que padece:</strong> {{ estudiante.enfermedades_padece|default:"NINGUNA REPORTADA" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>¿Impedimento físico?:</strong> {% if estudiante.impedimento_fisico %}SÍ{% else %}NO{% endif %}</td>
+                    <td><strong>Detalle impedimento:</strong> {{ estudiante.detalle_impedimento|default:"NINGUNO" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>¿Con quién vive?:</strong> {{ estudiante.vive_con }}{% if estudiante.vive_con_otro %} ({{ estudiante.vive_con_otro }}){% endif %}</td>
+                    <td><strong>¿De quién depende económicamente?:</strong> {{ estudiante.depende_de }}{% if estudiante.depende_de_otro %} ({{ estudiante.depende_de_otro }}){% endif %}</td>
+                </tr>
+            </table>
 
-        <div class="ficha-seccion">3. Datos Generales del Padre/Madre y/o Representante Legal</div>
-        <table class="tabla-ficha">
-            <tr>
-                <td style="width: 60%;"><strong>Nombre Completo:</strong> {{ responsable.nombres }} {{ responsable.apellidos }}</td>
-                <td style="width: 40%;"><strong>{{ responsable.tipo_documento|default:"DPI" }}:</strong> {{ responsable.dpi }}</td>
-            </tr>
-            <tr>
-                <td><strong>Parentesco:</strong> {{ vinculo_principal.parentesco }}</td>
-                <td><strong>Estado Civil:</strong> {{ responsable.estado_civil }}</td>
-            </tr>
-            <tr>
-                <td><strong>No. Celular:</strong> {{ responsable.celular }} {% if responsable.tiene_whatsapp %}(Con WhatsApp){% endif %}</td>
-                <td><strong>No. Tel. Casa:</strong> {{ responsable.telefono_fijo|default:"---" }}</td>
-            </tr>
-            <tr>
-                <td><strong>Profesión u Oficio:</strong> {{ responsable.profesion }}</td>
-                <td><strong>Correo Electrónico:</strong> {{ responsable.correo_electronico|default:"---" }}</td>
-            </tr>
-            <tr>
-                <td><strong>Religión:</strong> {{ responsable.religion|default:"---" }}</td>
-                <td><strong>Iglesia a la que asiste:</strong> {{ responsable.iglesia|default:"---" }}</td>
-            </tr>
-        </table>
+            <div class="ficha-seccion">2. En Caso de Emergencia a Quién Avisar</div>
+            <table class="tabla-emergencia-ficha">
+                <thead>
+                    <tr>
+                        <th style="width: 28%;">PARENTESCO / RELACIÓN</th>
+                        <th style="width: 47%;">NOMBRE COMPLETO</th>
+                        <th style="width: 25%;">TELÉFONO CELULAR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in todos_los_vinculos %}
+                    <tr>
+                        <td><strong>{{ v.parentesco|upper }}</strong> {% if v.es_contacto_principal %}(Firmante){% endif %}</td>
+                        <td>{{ v.responsable.nombres }} {{ v.responsable.apellidos }}</td>
+                        <td style="text-align: center;">{{ v.responsable.celular }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% for ce in contactos_emergencia %}
+                    <tr>
+                        <td><strong>{{ ce.parentesco }}</strong> (Emergencia)</td>
+                        <td>{{ ce.nombre_completo }}</td>
+                        <td style="text-align: center;">{{ ce.celular }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
 
-        <div class="ficha-seccion">4. Procedencia Académica (Primer Ingreso)</div>
-        <table class="tabla-ficha">
-            <tr>
-                <td style="width: 65%;"><strong>Establecimiento donde estudió el año anterior:</strong> {{ inscripcion.colegio_anterior|default:"ESTUDIANTE DE REINGRESO (COLEGIO AMIGOS)" }}</td>
-                <td style="width: 35%;"><strong>Promedio anterior:</strong> {{ inscripcion.promedio|default:"---" }}</td>
-            </tr>
-            <tr>
-                <td colspan="2"><strong>Razón de retiro:</strong> {{ inscripcion.razon_retiro|default:"---" }}</td>
-            </tr>
-        </table>
+            <div class="ficha-seccion">3. Datos Generales del Padre/Madre y/o Representante Legal</div>
+            <table class="tabla-ficha">
+                <tr>
+                    <td style="width: 60%;"><strong>Nombre Completo:</strong> {{ responsable.nombres }} {{ responsable.apellidos }}</td>
+                    <td style="width: 40%;"><strong>{{ responsable.tipo_documento|default:"DPI" }}:</strong> {{ responsable.dpi }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Parentesco:</strong> {{ vinculo_principal.parentesco }}</td>
+                    <td><strong>Estado Civil:</strong> {{ responsable.estado_civil }}</td>
+                </tr>
+                <tr>
+                    <td><strong>No. Celular:</strong> {{ responsable.celular }} {% if responsable.tiene_whatsapp %}(Con WhatsApp){% endif %}</td>
+                    <td><strong>No. Tel. Casa:</strong> {{ responsable.telefono_fijo|default:"---" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Profesión u Oficio:</strong> {{ responsable.profesion }}</td>
+                    <td><strong>Correo Electrónico:</strong> {{ responsable.correo_electronico|default:"---" }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Religión:</strong> {{ responsable.religion|default:"---" }}</td>
+                    <td><strong>Iglesia a la que asiste:</strong> {{ responsable.iglesia|default:"---" }}</td>
+                </tr>
+            </table>
 
-        <div class="nota-legal">
-            <strong>Nota:</strong> El Colegio Evangélico Mixto AMIGOS de la ciudad de Chiquimula, Guatemala, hace del conocimiento claro del estudiante y padre de familia/representante legal lo siguiente:<br>
-            <em>1. Los <strong>permisos</strong> deben ser firmados únicamente por las personas especificadas en la presente ficha (padre, madre o encargado).</em><br>
-            <em>2. Que, en caso de incurrir en <strong>falsificación de datos</strong>, será motivo suficiente para la <strong>devolución</strong> de su expediente y la finalización de toda relación con este centro educativo.</em>
-        </div>
+            <div class="ficha-seccion">4. Procedencia Académica (Primer Ingreso)</div>
+            <table class="tabla-ficha">
+                <tr>
+                    <td style="width: 65%;"><strong>Establecimiento donde estudió el año anterior:</strong> {{ inscripcion.colegio_anterior|default:"ESTUDIANTE DE REINGRESO (COLEGIO AMIGOS)" }}</td>
+                    <td style="width: 35%;"><strong>Promedio anterior:</strong> {{ inscripcion.promedio|default:"---" }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2"><strong>Razón de retiro:</strong> {{ inscripcion.razon_retiro|default:"---" }}</td>
+                </tr>
+            </table>
 
-        <div style="text-align: center; margin-top: 55px; page-break-inside: avoid;">
-            <div style="width: 320px; margin: 0 auto; border-top: 1px solid #000; padding-top: 5px;">
-                <strong>Firma: {{ responsable.nombres }} {{ responsable.apellidos }}</strong><br>
-                <strong>{{ responsable.tipo_documento|default:"DPI" }}: {{ responsable.dpi }}</strong>
+            <div class="nota-legal">
+                <strong>Nota:</strong> El Colegio Evangélico Mixto AMIGOS de la ciudad de Chiquimula, Guatemala, hace del conocimiento claro del estudiante y padre de familia/representante legal lo siguiente:<br>
+                <em>1. Los <strong>permisos</strong> deben ser firmados únicamente por las personas especificadas en la presente ficha (padre, madre o encargado).</em><br>
+                <em>2. Que, en caso de incurrir en <strong>falsificación de datos</strong>, será motivo suficiente para la <strong>devolución</strong> de su expediente y la finalización de toda relación con este centro educativo.</em>
+            </div>
+
+            <div class="firma-ficha-box">
+                <div style="width: 320px; margin: 0 auto; border-top: 1px solid #000; padding-top: 4px;">
+                    <strong>Firma: {{ responsable.nombres }} {{ responsable.apellidos }}</strong><br>
+                    <strong>{{ responsable.tipo_documento|default:"DPI" }}: {{ responsable.dpi }}</strong>
+                </div>
             </div>
         </div>
 

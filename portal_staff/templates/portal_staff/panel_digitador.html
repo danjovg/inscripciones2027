@@ -6,17 +6,31 @@
         <h2 class="mb-0 fw-bold"><i class="bi bi-pc-display-horizontal me-2 text-primary"></i>Panel de Digitadores</h2>
         <p class="text-muted small mb-0">Bandeja de auditoría de datos y emisión de Contratos de Adhesión en PDF</p>
     </div>
-    <!-- Pestañas de filtro rápido -->
-    <div class="btn-group shadow-sm mt-2 mt-md-0" role="group">
-        <a href="?estado=pendientes{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'pendientes' %}btn-primary fw-bold{% else %}btn-outline-primary bg-white{% endif %}">
-            <i class="bi bi-hourglass-split me-1"></i>Pendientes ({{ total_pendientes }})
-        </a>
-        <a href="?estado=inscritos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'inscritos' %}btn-success fw-bold{% else %}btn-outline-success bg-white{% endif %}">
-            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Inscritos / Contratos PDF ({{ total_inscritos }})
-        </a>
-        <a href="?estado=todos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'todos' %}btn-dark fw-bold{% else %}btn-outline-dark bg-white{% endif %}">
-            Todos
-        </a>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mt-md-0">
+        <!-- Botón exclusivo del Supervisor para generar tickets a todos los que están SIN TICKET -->
+        {% if user.is_superuser and total_sin_ticket > 0 %}
+        <form method="POST" class="d-inline" onsubmit="return confirm('¿Generar códigos de Ticket automáticamente para los {{ total_sin_ticket }} registros que no tienen ticket?');">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="generar_tickets_faltantes">
+            <button type="submit" class="btn btn-warning fw-bold shadow-sm">
+                <i class="bi bi-lightning-charge-fill me-1"></i> Generar Tickets Faltantes ({{ total_sin_ticket }})
+            </button>
+        </form>
+        {% endif %}
+
+        <!-- Pestañas de filtro rápido -->
+        <div class="btn-group shadow-sm" role="group">
+            <a href="?estado=pendientes{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'pendientes' %}btn-primary fw-bold{% else %}btn-outline-primary bg-white{% endif %}">
+                <i class="bi bi-hourglass-split me-1"></i>Pendientes ({{ total_pendientes }})
+            </a>
+            <a href="?estado=inscritos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'inscritos' %}btn-success fw-bold{% else %}btn-outline-success bg-white{% endif %}">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i>Inscritos / Contratos PDF ({{ total_inscritos }})
+            </a>
+            <a href="?estado=todos{% if query %}&q={{ query }}{% endif %}" class="btn {% if filtro_estado == 'todos' %}btn-dark fw-bold{% else %}btn-outline-dark bg-white{% endif %}">
+                Todos
+            </a>
+        </div>
     </div>
 </div>
 
@@ -65,7 +79,7 @@
                         <th>Estudiante</th>
                         <th>Grado a Cursar</th>
                         <th>Estado Actual</th>
-                        <th class="text-end">Acciones / Contrato PDF</th>
+                        <th class="text-end">Acciones / PDF</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -79,7 +93,13 @@
                             {% endif %}
                         </td>
                         <td class="fw-semibold font-monospace">{{ inscripcion.estudiante.cui }}</td>
-                        <td class="fw-bold text-dark">{{ inscripcion.estudiante.nombres }} {{ inscripcion.estudiante.apellidos }}</td>
+                        <td class="fw-bold text-dark">
+                            {% if inscripcion.estudiante.nombres or inscripcion.estudiante.apellidos %}
+                                {{ inscripcion.estudiante.nombres|default:"" }} {{ inscripcion.estudiante.apellidos|default:"" }}
+                            {% else %}
+                                <span class="text-muted fw-normal fst-italic">Pendiente de completar nombre</span>
+                            {% endif %}
+                        </td>
                         <td>{{ inscripcion.grado_a_cursar|default:"<span class='text-danger small fw-bold'>Sin asignar</span>"|safe }}</td>
                         <td>
                             {% if inscripcion.estado_solicitud == 'INSCRITO' %}
@@ -93,16 +113,13 @@
                         <td class="text-end">
                             <div class="d-flex justify-content-end gap-2">
                                 <a href="{% url 'editar_expediente' inscripcion.id %}" class="btn btn-sm btn-primary fw-bold">
-                                    <i class="bi bi-pencil-square me-1"></i> Auditar / Inscribir
+                                    <i class="bi bi-pencil-square me-1"></i> Inscribir
                                 </a>
 
-                                <!-- CANDADO: Solo muestra botones de Contrato y PDF si YA ESTÁ INSCRITO OFICIALMENTE -->
+                                <!-- CANDADO: Solo muestra el botón de Contrato PDF si YA ESTÁ INSCRITO OFICIALMENTE -->
                                 {% if inscripcion.estado_solicitud == 'INSCRITO' and inscripcion.grado_a_cursar %}
-                                <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}" class="btn btn-sm btn-success fw-bold" title="Abrir Vista de Impresión y Contrato">
-                                    <i class="bi bi-printer-fill me-1"></i> Ver / Imprimir Contrato
-                                </a>
-                                <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" class="btn btn-sm btn-danger fw-bold" title="Descargar PDF">
-                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
+                                <a href="{% url 'descargar_contrato_pdf' inscripcion.id %}?forzar_pdf=1" target="_blank" class="btn btn-sm btn-success fw-bold" title="Abrir Contrato PDF Oficial en nueva pestaña">
+                                    <i class="bi bi-printer-fill me-1"></i> Contrato PDF
                                 </a>
                                 {% endif %}
                             </div>
